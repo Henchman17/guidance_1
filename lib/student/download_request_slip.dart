@@ -69,14 +69,14 @@ class _DownloadRequestSlipState extends State<DownloadRequestSlip> {
     });
 
     try {
-      final pdfData = await rootBundle.load('assets/files/Request Slip.pdf');
+      final pdfData = await rootBundle.load('assets/files/RequestSlip.pdf');
 
       if (kIsWeb) {
         final blob = html.Blob([pdfData.buffer.asUint8List()], 'application/pdf');
         final url = html.Url.createObjectUrlFromBlob(blob);
         final anchor = html.document.createElement('a') as html.AnchorElement
           ..href = url
-          ..download = 'Request Slip.pdf'
+          ..download = 'RequestSlip.pdf'
           ..style.display = 'none';
         html.document.body!.append(anchor);
         anchor.click();
@@ -87,7 +87,7 @@ class _DownloadRequestSlipState extends State<DownloadRequestSlip> {
         });
       } else {
         final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/Request Slip.pdf');
+        final file = File('${dir.path}/RequestSlip.pdf');
         await file.writeAsBytes(pdfData.buffer.asUint8List());
         setState(() {
           _statusMessage = 'File saved to ${file.path}';
@@ -108,7 +108,7 @@ class _DownloadRequestSlipState extends State<DownloadRequestSlip> {
   @override
   void initState() {
     super.initState();
-    _downloadAndOpenPDF();
+    // Removed automatic download
   }
 
   @override
@@ -118,14 +118,76 @@ class _DownloadRequestSlipState extends State<DownloadRequestSlip> {
         title: const Text('Download Request Slip'),
         backgroundColor: const Color.fromARGB(255, 30, 182, 88),
       ),
-      body: Center(
-        child: _isDownloading
-            ? const CircularProgressIndicator()
-            : Text(
-                _statusMessage.isEmpty ? 'Ready to download.' : _statusMessage,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.lightGreen.withOpacity(0.3),
+                    Colors.green.shade900.withOpacity(1.0),
+                  ],
+                ),
               ),
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/download.jpg',
+                    height: 150,
+                    width: 150,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: 24),
+                  if (_isDownloading)
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    )
+                  else
+                    SizedBox(
+                      width: 250,
+                      child: ElevatedButton.icon(
+                        onPressed: _downloadAndOpenPDF,
+                        icon: const Icon(Icons.download, size: 28),
+                        label: const Text('Download Request Slip'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color.fromARGB(255, 30, 182, 88),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 5,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _statusMessage.isEmpty ? 'Tap the button to download the Request Slip PDF.' : _statusMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 16, color: Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

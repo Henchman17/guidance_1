@@ -1,37 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'student/guidance_scheduling_page.dart';
-import 'student/answerable_forms.dart';
-import 'student/good_moral_request.dart';
-import 'login_page.dart';
-import 'settings.dart';
-import 'shared_enums.dart';
-import 'admin/admin_dashboard.dart';
-import 'admin/admin_users_page.dart';
-import 'admin/admin_appointments_page.dart';
-import 'admin/admin_analytics_page.dart';
-import 'admin/admin_re_admission_page.dart';
-import 'admin/admin_discipline_page.dart';
-import 'admin/admin_exit_interviews_page.dart';
-import 'admin/admin_forms_page.dart';
+import 'guidance_scheduling_page.dart';
+import 'answerable_forms.dart';
+import 'good_moral_request.dart';
+import '../login_page.dart';
+import '../settings.dart';
+import '../shared_enums.dart';
 
-import 'student/student_panel.dart';
-
-class NavigationRailExample extends StatefulWidget {
+class StudentPanel extends StatefulWidget {
   final Map<String, dynamic>? userData;
-  
-  const NavigationRailExample({super.key, this.userData});
+
+  const StudentPanel({super.key, this.userData});
 
   @override
-  State<NavigationRailExample> createState() => _NavigationRailExampleState();
+  State<StudentPanel> createState() => _StudentPanelState();
 }
 
-class _NavigationRailExampleState extends State<NavigationRailExample> with SingleTickerProviderStateMixin {
+class _StudentPanelState extends State<StudentPanel> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
-  bool _isExtended = false; // For collapsible NavigationRail, set to false for default collapsed sidebar
+  bool _isSidebarVisible = false; // Controls sidebar visibility (false = hidden, true = icon-only)
   SchedulingStatus _schedulingStatus = SchedulingStatus.none;
-  Map<String, dynamic>? _currentUser ;
+  Map<String, dynamic>? _currentUser;
   List<Map<String, dynamic>> _approvedAppointments = [];
   bool _isLoadingNotifications = false;
 
@@ -40,19 +30,19 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
   @override
   void initState() {
     super.initState();
-    _currentUser  = widget.userData;
+    _currentUser = widget.userData;
     _fetchApprovedAppointments();
   }
 
   Future<void> _fetchApprovedAppointments() async {
-    if (_currentUser  == null) return;
+    if (_currentUser == null) return;
 
     setState(() {
       _isLoadingNotifications = true;
     });
 
     try {
-      final userId = _currentUser !['id'];
+      final userId = _currentUser!['id'];
       final response = await http.get(
         Uri.parse('$apiBaseUrl/api/appointments/approved?user_id=$userId'),
         headers: {'Content-Type': 'application/json'},
@@ -79,7 +69,6 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
   }
 
   void _handleLogout() {
-    // Clear user data and navigate to login page
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -97,7 +86,7 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                 MaterialPageRoute(
                   builder: (context) => const LoginPage(),
                 ),
-                (route) => false, // Remove all routes from stack
+                (route) => false,
               );
             },
             child: const Text('Logout'),
@@ -150,9 +139,61 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
   void _navigateToAnswerableFormsPage() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => AnswerableForms(userData: _currentUser ),
+        builder: (context) => AnswerableForms(userData: _currentUser),
       ),
     );
+  }
+
+  void _navigateToGuidanceSchedulingPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => GuidanceSchedulingPage(
+          status: _schedulingStatus,
+          userData: _currentUser,
+          onStatusUpdate: (SchedulingStatus newStatus) {
+            setState(() {
+              _schedulingStatus = newStatus;
+            });
+          },
+          onAppointmentApproved: _refreshNotifications,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToGoodMoralRequestPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => GoodMoralRequest(),
+      ),
+    );
+  }
+
+  List<NavigationRailDestination> _buildNavigationDestinations() {
+    return [
+      const NavigationRailDestination(
+        icon: Icon(Icons.home),
+        label: Text('Home'),
+      ),
+      const NavigationRailDestination(
+        icon: Icon(Icons.settings),
+        label: Text('Settings'),
+      ),
+      const NavigationRailDestination(
+        icon: Icon(Icons.logout),
+        label: Text('Logout'),
+      ),
+    ];
+  }
+
+  void _handleNavigation(int index) {
+    if (index == 0) { // Home
+      setState(() => _selectedIndex = 0);
+    } else if (index == 1) { // Settings
+      setState(() => _selectedIndex = 1);
+    } else if (index == 2) { // Logout
+      _handleLogout();
+    }
   }
 
   @override
@@ -169,15 +210,15 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                 // Menu icon and Logo section
                 IconButton(
                   icon: Icon(
-                    _isExtended ? Icons.menu_open : Icons.menu,
+                    _isSidebarVisible ? Icons.close : Icons.menu,
                     color: Colors.white,
                   ),
                   onPressed: () {
                     setState(() {
-                      _isExtended = !_isExtended;
+                      _isSidebarVisible = !_isSidebarVisible;
                     });
                   },
-                  tooltip: _isExtended ? 'Collapse sidebar' : 'Expand sidebar',
+                  tooltip: _isSidebarVisible ? 'Close sidebar' : 'Open sidebar',
                 ),
                 const SizedBox(width: 10),
                 CircleAvatar(
@@ -238,13 +279,13 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                 ),
                 const SizedBox(width: 16),
                 // Profile Circle
-                if (_currentUser  != null)
+                if (_currentUser != null)
                   GestureDetector(
                     onTap: () {
                       showDialog(
                         context: context,
                         builder: (context) => AlertDialog(
-                          title: const Text('User  Profile'),
+                          title: const Text('User Profile'),
                           content: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,15 +295,15 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                                   radius: 40,
                                   backgroundColor: Colors.green,
                                   child: Text(
-                                    _currentUser !['username']?.substring(0, 1).toUpperCase() ?? 'U',
+                                    _currentUser!['username']?.substring(0, 1).toUpperCase() ?? 'S',
                                     style: const TextStyle(fontSize: 32, color: Colors.white),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              Text('Username: ${_currentUser !['username']}'),
-                              Text('Email: ${_currentUser !['email'] ?? 'N/A'}'),
-                              Text('Role: ${_currentUser !['role'] ?? 'Student'}'),
+                              Text('Username: ${_currentUser!['username']}'),
+                              Text('Email: ${_currentUser!['email'] ?? 'N/A'}'),
+                              Text('Role: ${_currentUser!['role'] ?? 'Student'}'),
                             ],
                           ),
                           actions: [
@@ -272,7 +313,7 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                             ),
                             TextButton(
                               onPressed: _handleLogout,
-                              child: const Text('Logout', 
+                              child: const Text('Logout',
                                 style: TextStyle(color: Colors.red)),
                             ),
                           ],
@@ -283,7 +324,7 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                       radius: 20,
                       backgroundColor: Colors.white,
                       child: Text(
-                        _currentUser !['username']?.substring(0, 1).toUpperCase() ?? 'U',
+                        _currentUser!['username']?.substring(0, 1).toUpperCase() ?? 'S',
                         style: const TextStyle(
                           color: Color.fromARGB(255, 30, 182, 88),
                           fontWeight: FontWeight.bold,
@@ -321,84 +362,63 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                 ),
                 Row(
                   children: [
-                    // Smooth animated NavigationRail - Fixed to always show (collapsed or extended)
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) => SizeTransition(
-                        sizeFactor: animation,
-                        axis: Axis.horizontal,
-                        child: child,
-                      ),
-                      child: _isExtended
-                          ? Container(
-                              width: 260,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Colors.green.shade700, Colors.green.shade900],
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(2, 0),
-                                  ),
-                                ],
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(16),
-                                  bottomRight: Radius.circular(16),
-                                ),
-                              ),
-                              child: NavigationRail(
-                                extended: true,
-                                selectedIndex: _selectedIndex,
-                                onDestinationSelected: (int index) {
-                                  _handleNavigation(index);
-                                },
-                                labelType: NavigationRailLabelType.none,
-                                backgroundColor: Colors.transparent,
-                                selectedIconTheme: const IconThemeData(color: Colors.white, size: 28),
-                                unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 24),
-                                selectedLabelTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                unselectedLabelTextStyle: const TextStyle(color: Colors.white70),
-                                destinations: _buildNavigationDestinationsWithDividers(),
-                              ),
-                            )
-                          : Container(
-                              width: 72,
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade800,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(2, 0),
-                                  ),
-                                ],
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(16),
-                                  bottomRight: Radius.circular(16),
-                                ),
-                              ),
-                              child: NavigationRail(
-                                extended: false,
-                                selectedIndex: _selectedIndex,
-                                onDestinationSelected: (int index) {
-                                  _handleNavigation(index);
-                                  setState(() => _isExtended = true);
-                                },
-                                labelType: NavigationRailLabelType.none,
-                                backgroundColor: Colors.transparent,
-                                selectedIconTheme: const IconThemeData(color: Colors.white, size: 28),
-                                unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 24),
-                                destinations: _buildNavigationDestinationsWithDividers(),
-                              ),
+                // Smooth animated NavigationRail - Show/hide completely
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => SizeTransition(
+                    sizeFactor: animation,
+                    axis: Axis.horizontal,
+                    child: child,
+                  ),
+                  child: _isSidebarVisible
+                      ? Container(
+                          width: 72,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.green.shade700, Colors.green.shade900],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
                             ),
-                    ),
-                    if (_isExtended) const VerticalDivider(thickness: 1, width: 1, color: Colors.greenAccent),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(2, 0),
+                              ),
+                            ],
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(16),
+                              bottomRight: Radius.circular(16),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              // Close button at top of sidebar
+                              // Removed as per user request
+                              Expanded(
+                                child: NavigationRail(
+                                  extended: false,
+                                  selectedIndex: _selectedIndex,
+                                  onDestinationSelected: (int index) {
+                                    _handleNavigation(index);
+                                  },
+                                  labelType: NavigationRailLabelType.none,
+                                  backgroundColor: Colors.transparent,
+                                  selectedIconTheme: const IconThemeData(color: Colors.white, size: 28),
+                                  unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 24),
+                                  selectedLabelTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  unselectedLabelTextStyle: const TextStyle(color: Colors.white70),
+                                  destinations: _buildNavigationDestinations(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                if (_isSidebarVisible) const VerticalDivider(thickness: 1, width: 1, color: Colors.greenAccent),
                     // Main content area always visible
                     Expanded(
                       child: Stack(
@@ -489,47 +509,46 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                                                     ),
                                                   ),
                                                 ),
-                                                // Guidance Scheduling Card - Only for students
-                                                if (_currentUser ?['role'] == 'student')
-                                                  Padding(
-                                                    padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.01), // 0.5-inch padding between cards
-                                                    child: Card(
-                                                      elevation: 4,
-                                                      child: InkWell(
-                                                        onTap: _navigateToGuidanceSchedulingPage,
-                                                        child: Container(
-                                                          width: double.infinity,
-                                                          padding: const EdgeInsets.all(24),
-                                                          child: Column(
-                                                            mainAxisAlignment: MainAxisAlignment.center,
-                                                            children: [
-                                                              const Icon(Icons.calendar_month, size: 64, color: Colors.green),
-                                                              const SizedBox(height: 20),
-                                                              Text(
-                                                                _schedulingStatus == SchedulingStatus.none
-                                                                    ? 'Guidance Scheduling'
-                                                                    : _schedulingStatus == SchedulingStatus.processing
-                                                                        ? 'Request: Processing'
-                                                                        : 'Request: Approved',
-                                                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                                                textAlign: TextAlign.center,
+                                                // Guidance Scheduling Card
+                                                Padding(
+                                                  padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.01), // 0.5-inch padding between cards
+                                                  child: Card(
+                                                    elevation: 4,
+                                                    child: InkWell(
+                                                      onTap: _navigateToGuidanceSchedulingPage,
+                                                      child: Container(
+                                                        width: double.infinity,
+                                                        padding: const EdgeInsets.all(24),
+                                                        child: Column(
+                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                          children: [
+                                                            const Icon(Icons.calendar_month, size: 64, color: Colors.green),
+                                                            const SizedBox(height: 20),
+                                                            Text(
+                                                              _schedulingStatus == SchedulingStatus.none
+                                                                  ? 'Guidance Scheduling'
+                                                                  : _schedulingStatus == SchedulingStatus.processing
+                                                                      ? 'Request: Processing'
+                                                                      : 'Request: Approved',
+                                                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                                              textAlign: TextAlign.center,
+                                                            ),
+                                                            if (_schedulingStatus == SchedulingStatus.processing)
+                                                              const Padding(
+                                                                padding: EdgeInsets.only(top: 8.0),
+                                                                child: CircularProgressIndicator(),
                                                               ),
-                                                              if (_schedulingStatus == SchedulingStatus.processing)
-                                                                const Padding(
-                                                                  padding: EdgeInsets.only(top: 8.0),
-                                                                  child: CircularProgressIndicator(),
-                                                                ),
-                                                              if (_schedulingStatus == SchedulingStatus.approved)
-                                                                const Padding(
-                                                                  padding: EdgeInsets.only(top: 8.0),
-                                                                  child: Icon(Icons.check_circle, color: Colors.green),
-                                                                ),
-                                                            ],
-                                                          ),
+                                                            if (_schedulingStatus == SchedulingStatus.approved)
+                                                              const Padding(
+                                                                padding: EdgeInsets.only(top: 8.0),
+                                                                child: Icon(Icons.check_circle, color: Colors.green),
+                                                              ),
+                                                          ],
                                                         ),
                                                       ),
                                                     ),
                                                   ),
+                                                ),
                                                 // Good Moral Request Card
                                                 Padding(
                                                   padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.01), // 0.5-inch padding between cards
@@ -564,7 +583,7 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                                     ),
                                   )
                                 : _selectedIndex == 1
-                                    ? SettingsPage(userData: _currentUser )
+                                    ? SettingsPage(userData: _currentUser)
                                     : Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
@@ -609,7 +628,7 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                         builder: (context) => AlertDialog(
                           title: const Text('Help'),
                           content: const Text('This is a demo app for PLSP Guidance Counseling. '
-                              'Use the cards to navigate through different functionalities.'), 
+                              'Use the cards to navigate through different functionalities.'),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.of(context).pop(),
@@ -627,283 +646,6 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _navigateToGuidanceSchedulingPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => GuidanceSchedulingPage(
-          status: _schedulingStatus,
-          userData: _currentUser ,
-          onStatusUpdate: (SchedulingStatus newStatus) {
-            setState(() {
-              _schedulingStatus = newStatus;
-            });
-          },
-          onAppointmentApproved: _refreshNotifications,
-        ),
-      ),
-    );
-  }
-  
-  void _navigateToGoodMoralRequestPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => GoodMoralRequest(),
-      ),
-    );
-  }
-
-  List<NavigationRailDestination> _buildNavigationDestinations() {
-    final isAdmin = _currentUser ?['role'] == 'admin';
-    final isCounselor = _currentUser ?['role'] == 'counselor';
-
-    List<NavigationRailDestination> destinations = [
-      const NavigationRailDestination(
-        icon: Icon(Icons.home),
-        label: Text('Home'),
-      ),
-    ];
-
-    if (isAdmin) {
-      destinations.addAll([
-        const NavigationRailDestination(
-          icon: Icon(Icons.dashboard),
-          label: Text('Admin Dashboard'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.people),
-          label: Text('Users'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.calendar_today),
-          label: Text('Appointments'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.analytics),
-          label: Text('Analytics'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.assignment_return),
-          label: Text('Re-admission'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.gavel),
-          label: Text('Discipline'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.exit_to_app),
-          label: Text('Exit Interviews'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.assignment),
-          label: Text('Forms & Records'),
-        ),
-      ]);
-    }
-
-    destinations.addAll([
-      const NavigationRailDestination(
-        icon: Icon(Icons.settings),
-        label: Text('Settings'),
-      ),
-      const NavigationRailDestination(
-        icon: Icon(Icons.logout),
-        label: Text('Logout'),
-      ),
-    ]);
-
-    // Debug print to verify item count
-    print('User  role: ${_currentUser ?['role']}, Destinations count: ${destinations.length}');
-
-    return destinations;
-  }
-
-  List<NavigationRailDestination> _buildNavigationDestinationsWithDividers() {
-    final isAdmin = _currentUser ?['role'] == 'admin';
-
-    List<NavigationRailDestination> destinations = [
-      const NavigationRailDestination(
-        icon: Icon(Icons.home),
-        label: Text('Home'),
-      ),
-    ];
-
-    if (isAdmin) {
-      destinations.addAll([
-        const NavigationRailDestination(
-          icon: Icon(Icons.dashboard),
-          label: Text('Admin Dashboard'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.people),
-          label: Text('Users'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.calendar_today),
-          label: Text('Appointments'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.analytics),
-          label: Text('Analytics'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.assignment_return),
-          label: Text('Re-admission'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.gavel),
-          label: Text('Discipline'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.exit_to_app),
-          label: Text('Exit Interviews'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.assignment),
-          label: Text('Forms & Records'),
-        ),
-      ]);
-    }
-
-    // Add a divider as a disabled destination (using a transparent icon and empty label)
-    destinations.add(
-      const NavigationRailDestination(
-        icon: SizedBox.shrink(),
-        label: SizedBox.shrink(),
-      ),
-    );
-
-    destinations.addAll([
-      const NavigationRailDestination(
-        icon: Icon(Icons.settings),
-        label: Text('Settings'),
-      ),
-      const NavigationRailDestination(
-        icon: Icon(Icons.logout),
-        label: Text('Logout'),
-      ),
-    ]);
-
-    return destinations;
-  }
-
-  void _handleNavigation(int index) {
-    final isAdmin = _currentUser ?['role'] == 'admin';
-    final isCounselor = _currentUser ?['role'] == 'counselor';
-
-    if (isAdmin) {
-      switch (index) {
-        case 0: // Home
-          setState(() => _selectedIndex = 0);
-          break;
-        case 1: // Admin Dashboard
-          _navigateToAdminDashboard();
-          break;
-        case 2: // Users
-          _navigateToAdminUsers();
-          break;
-        case 3: // Appointments
-          _navigateToAdminAppointments();
-          break;
-        case 4: // Analytics
-          _navigateToAdminAnalytics();
-          break;
-        case 5: // Re-admission Cases
-          _navigateToAdminReAdmission();
-          break;
-        case 6: // Discipline Cases
-          _navigateToAdminDiscipline();
-          break;
-        case 7: // Exit Interviews
-          _navigateToAdminExitInterviews();
-          break;
-        case 8: // Forms & Records
-          _navigateToAdminForms();
-          break;
-        case 9: // Settings
-          setState(() => _selectedIndex = 1);
-          break;
-        case 10: // Logout
-          _handleLogout();
-          break;
-      }
-    } else {
-      if (index == 0) { // Home
-        setState(() => _selectedIndex = 0);
-      } else if (index == 1) { // Settings
-        setState(() => _selectedIndex = 1);
-      } else if (index == 2) { // Logout
-        _handleLogout();
-      }
-    }
-
-    // Optional: Collapse after selection (uncomment if desired)
-     setState(() => _isExtended = false);
-  }
-
-  void _navigateToAdminDashboard() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminDashboardPage(userData: _currentUser ),
-      ),
-    );
-  }
-
-  void _navigateToAdminUsers() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminUsersPage(userData: _currentUser ),
-      ),
-    );
-  }
-
-  void _navigateToAdminAppointments() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminAppointmentsPage(userData: _currentUser ),
-      ),
-    );
-  }
-
-  void _navigateToAdminAnalytics() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminAnalyticsPage(userData: _currentUser ),
-      ),
-    );
-  }
-
-  void _navigateToAdminReAdmission() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminReAdmissionPage(userData: _currentUser ),
-      ),
-    );
-  }
-
-  void _navigateToAdminDiscipline() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminDisciplinePage(userData: _currentUser ),
-      ),
-    );
-  }
-
-  void _navigateToAdminExitInterviews() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminExitInterviewsPage(userData: _currentUser ),
-      ),
-    );
-  }
-
-  void _navigateToAdminForms() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminFormsPage(userData: _currentUser ),
       ),
     );
   }

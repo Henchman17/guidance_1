@@ -134,8 +134,15 @@ class RoutineInterviewPageState extends State<RoutineInterviewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Routine Interview Form'),
+       appBar: AppBar(
+        title: const Text(
+          "Routine Interview",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: const Color.fromARGB(255, 30, 182, 88),
       ),
       body: SingleChildScrollView(
