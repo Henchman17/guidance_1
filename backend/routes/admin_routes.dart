@@ -35,40 +35,65 @@ class AdminRoutes {
         return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
       }
 
-      // Get user statistics
-      final userStats = await _database.query('SELECT * FROM user_statistics');
-      final appointmentStats = await _database.query('SELECT * FROM appointment_statistics');
-      final counselorWorkload = await _database.query('SELECT * FROM counselor_workload');
+      // Get user statistics directly from users table
+      final totalUsersResult = await _database.query('SELECT COUNT(*) FROM users');
+      final adminCountResult = await _database.query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+      final counselorCountResult = await _database.query("SELECT COUNT(*) FROM users WHERE role = 'counselor'");
+      final studentCountResult = await _database.query("SELECT COUNT(*) FROM users WHERE role = 'student'");
+      final newUsers30DaysResult = await _database.query("SELECT COUNT(*) FROM users WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'");
+      final newUsers7DaysResult = await _database.query("SELECT COUNT(*) FROM users WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'");
+      final newUsersTodayResult = await _database.query("SELECT COUNT(*) FROM users WHERE role = 'student' AND created_at >= CURRENT_DATE");
 
-      // Query to get new users today count
-      final newUsersTodayResult = await _database.query('''
-        SELECT COUNT(*) FROM users
-        WHERE role = 'student' AND created_at >= CURRENT_DATE
+      // Get appointment statistics directly from appointments table
+      final totalAppointmentsResult = await _database.query('SELECT COUNT(*) FROM appointments');
+      final scheduledCountResult = await _database.query("SELECT COUNT(*) FROM appointments WHERE apt_status = 'scheduled'");
+      final completedCountResult = await _database.query("SELECT COUNT(*) FROM appointments WHERE apt_status = 'completed'");
+      final cancelledCountResult = await _database.query("SELECT COUNT(*) FROM appointments WHERE apt_status = 'cancelled'");
+      final upcomingCountResult = await _database.query('SELECT COUNT(*) FROM appointments WHERE appointment_date >= CURRENT_DATE');
+      final overdueCountResult = await _database.query("SELECT COUNT(*) FROM appointments WHERE appointment_date < CURRENT_DATE AND apt_status = 'scheduled'");
+      final avgDaysResult = await _database.query("SELECT AVG(EXTRACT(EPOCH FROM (appointment_date - created_at))/86400) FROM appointments WHERE appointment_date > created_at");
+      final appointments30DaysResult = await _database.query("SELECT COUNT(*) FROM appointments WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'");
+
+      // Get counselor workload directly
+      final counselorWorkloadResult = await _database.query('''
+        SELECT
+          u.id as counselor_id,
+          u.username as counselor_name,
+          u.email as counselor_email,
+          COUNT(a.id) as total_appointments,
+          COUNT(CASE WHEN a.apt_status = 'scheduled' THEN 1 END) as scheduled_appointments,
+          COUNT(CASE WHEN a.apt_status = 'completed' THEN 1 END) as completed_appointments,
+          COUNT(CASE WHEN a.appointment_date >= CURRENT_DATE THEN 1 END) as upcoming_appointments,
+          COUNT(CASE WHEN a.appointment_date < CURRENT_DATE AND a.apt_status = 'scheduled' THEN 1 END) as overdue_appointments
+        FROM users u
+        LEFT JOIN appointments a ON u.id = a.counselor_id
+        WHERE u.role = 'counselor'
+        GROUP BY u.id, u.username, u.email
       ''');
 
       final newUsersTodayCount = newUsersTodayResult.isNotEmpty ? newUsersTodayResult.first[0] : 0;
 
       return Response.ok(jsonEncode({
-        'user_statistics': userStats.isNotEmpty ? {
-          'total_users': userStats.first[0],
-          'admin_count': userStats.first[1],
-          'counselor_count': userStats.first[2],
-          'student_count': userStats.first[3],
-          'new_users_30_days': userStats.first[4],
-          'new_users_7_days': userStats.first[5],
-          'new_users_today': newUsersTodayCount,
-        } : null,
-        'appointment_statistics': appointmentStats.isNotEmpty ? {
-          'total_appointments': appointmentStats.first[0],
-          'scheduled_count': appointmentStats.first[1],
-          'completed_count': appointmentStats.first[2],
-          'cancelled_count': appointmentStats.first[3],
-          'upcoming_count': appointmentStats.first[4],
-          'overdue_count': appointmentStats.first[5],
-          'avg_days_to_appointment': appointmentStats.first[6],
-          'appointments_30_days': appointmentStats.first[7],
-        } : null,
-        'counselor_workload': counselorWorkload.map((row) => {
+        'user_statistics': {
+          'total_users': totalUsersResult.isNotEmpty ? totalUsersResult.first[0] : 0,
+          'admin_count': adminCountResult.isNotEmpty ? adminCountResult.first[0] : 0,
+          'counselor_count': counselorCountResult.isNotEmpty ? counselorCountResult.first[0] : 0,
+          'student_count': studentCountResult.isNotEmpty ? studentCountResult.first[0] : 0,
+          'new_users_30_days': newUsers30DaysResult.isNotEmpty ? newUsers30DaysResult.first[0] : 0,
+          'new_users_7_days': newUsers7DaysResult.isNotEmpty ? newUsers7DaysResult.first[0] : 0,
+          'new_users_today': newUsersTodayResult.isNotEmpty ? newUsersTodayResult.first[0] : 0,
+        },
+        'appointment_statistics': {
+          'total_appointments': totalAppointmentsResult.isNotEmpty ? totalAppointmentsResult.first[0] : 0,
+          'scheduled_count': scheduledCountResult.isNotEmpty ? scheduledCountResult.first[0] : 0,
+          'completed_count': completedCountResult.isNotEmpty ? completedCountResult.first[0] : 0,
+          'cancelled_count': cancelledCountResult.isNotEmpty ? cancelledCountResult.first[0] : 0,
+          'upcoming_count': upcomingCountResult.isNotEmpty ? upcomingCountResult.first[0] : 0,
+          'overdue_count': overdueCountResult.isNotEmpty ? overdueCountResult.first[0] : 0,
+          'avg_days_to_appointment': avgDaysResult.isNotEmpty && avgDaysResult.first[0] != null ? avgDaysResult.first[0] : 0,
+          'appointments_30_days': appointments30DaysResult.isNotEmpty ? appointments30DaysResult.first[0] : 0,
+        },
+        'counselor_workload': counselorWorkloadResult.map((row) => {
           'counselor_id': row[0],
           'counselor_name': row[1],
           'counselor_email': row[2],
@@ -80,6 +105,7 @@ class AdminRoutes {
         }).toList(),
       }));
     } catch (e) {
+      print('Error in getAdminDashboard: $e');
       return Response.internalServerError(
         body: jsonEncode({'error': 'Failed to fetch admin dashboard: $e'}),
       );
@@ -94,7 +120,7 @@ class AdminRoutes {
       }
 
       final result = await _database.query('''
-        SELECT id, username, email, role, created_at, student_id, first_name, last_name, grade_level, section
+        SELECT id, username, email, role, created_at, student_id, first_name, last_name, status, program
         FROM users
         ORDER BY role, created_at DESC
       ''');
@@ -104,18 +130,23 @@ class AdminRoutes {
         'username': row[1],
         'email': row[2],
         'role': row[3],
-        'created_at': row[4]?.toIso8601String(),
+        'created_at': row[4] is DateTime ? (row[4] as DateTime).toIso8601String() : row[4]?.toString(),
         'student_id': row[5],
         'first_name': row[6],
         'last_name': row[7],
-        'grade_level': row[8],
-        'section': row[9],
+        'status': row[8],
+        'program': row[9],
       }).toList();
 
       return Response.ok(jsonEncode({'users': users}));
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Error in getAdminUsers: $e');
+      print('Stack trace: $stackTrace');
       return Response.internalServerError(
-        body: jsonEncode({'error': 'Failed to fetch users: $e'}),
+        body: jsonEncode({
+          'error': 'Failed to fetch users: $e',
+          'details': stackTrace.toString()
+        }),
       );
     }
   }
@@ -143,15 +174,15 @@ class AdminRoutes {
           'student_id': data['student_id'] ?? 'STU${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
           'first_name': data['first_name'] ?? data['username'],
           'last_name': data['last_name'] ?? '',
-          'grade_level': data['grade_level'] ?? 'Unknown',
-          'section': data['section'] ?? 'Unknown',
+          'status': data['status'] ?? 'Unknown',
+          'program': data['program'] ?? 'Unknown',
         });
       }
 
       final userResult = await _database.query('''
-        INSERT INTO users (username, email, password, role, student_id, first_name, last_name, grade_level, section)
-        VALUES (@username, @email, @password, @role, @student_id, @first_name, @last_name, @grade_level, @section)
-        RETURNING id, username, email, role, created_at, student_id, first_name, last_name, grade_level, section
+        INSERT INTO users (username, email, password, role, student_id, first_name, last_name, status, program)
+        VALUES (@username, @email, @password, @role, @student_id, @first_name, @last_name, @status, @program)
+        RETURNING id, username, email, role, created_at, student_id, first_name, last_name, status, program
       ''', userData);
 
       final userRow = userResult.first;
@@ -165,8 +196,8 @@ class AdminRoutes {
         'student_id': userRow[5],
         'first_name': userRow[6],
         'last_name': userRow[7],
-        'grade_level': userRow[8],
-        'section': userRow[9],
+        'status': userRow[8],
+        'program': userRow[9],
         'message': 'User created successfully by admin',
       }));
     } catch (e) {
@@ -214,13 +245,13 @@ class AdminRoutes {
         updateFields.add('last_name = @last_name');
         params['last_name'] = data['last_name'];
       }
-      if (data['grade_level'] != null) {
-        updateFields.add('grade_level = @grade_level');
-        params['grade_level'] = data['grade_level'];
+      if (data['status'] != null) {
+        updateFields.add('status = @status');
+        params['status'] = data['status'];
       }
-      if (data['section'] != null) {
-        updateFields.add('section = @section');
-        params['section'] = data['section'];
+      if (data['program'] != null) {
+        updateFields.add('program = @program');
+        params['program'] = data['program'];
       }
 
       if (updateFields.isEmpty) {
@@ -271,7 +302,7 @@ class AdminRoutes {
           a.appointment_date,
           a.purpose,
           a.course,
-          a.status,
+          a.apt_status,
           a.notes,
           a.created_at,
           CONCAT(s.first_name, ' ', s.last_name) as student_name,
@@ -279,8 +310,8 @@ class AdminRoutes {
           s.student_id as student_number,
           s.first_name as student_first_name,
           s.last_name as student_last_name,
-          s.grade_level,
-          s.section,
+          s.status,
+          s.program,
           u.email as counselor_email
         FROM appointments a
         JOIN users s ON a.student_id = s.id
@@ -292,19 +323,19 @@ class AdminRoutes {
         'id': row[0],
         'student_id': row[1],
         'counselor_id': row[2],
-        'appointment_date': row[3] is DateTime ? (row[3] as DateTime).toIso8601String() : row[3].toString(),
+        'appointment_date': row[3] is DateTime ? (row[3] as DateTime).toIso8601String() : row[3]?.toString(),
         'purpose': row[4]?.toString() ?? '',
         'course': row[5]?.toString() ?? '',
-        'status': row[6]?.toString() ?? 'scheduled',
+        'apt_status': row[6]?.toString() ?? 'scheduled',
         'notes': row[7]?.toString() ?? '',
-        'created_at': row[8] is DateTime ? (row[8] as DateTime).toIso8601String() : row[8].toString(),
+        'created_at': row[8] is DateTime ? (row[8] as DateTime).toIso8601String() : row[8]?.toString(),
         'student_name': row[9]?.toString() ?? 'Unknown Student',
         'counselor_name': row[10]?.toString() ?? 'Unknown Counselor',
         'student_number': row[11]?.toString(),
         'student_first_name': row[12]?.toString(),
         'student_last_name': row[13]?.toString(),
-        'grade_level': row[14]?.toString(),
-        'section': row[15]?.toString(),
+        'status': row[14]?.toString(),
+        'program': row[15]?.toString(),
         'counselor_email': row[16]?.toString(),
       }).toList();
 
@@ -313,9 +344,14 @@ class AdminRoutes {
         'count': appointments.length,
         'appointments': appointments
       }));
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Error in getAdminAppointments: $e');
+      print('Stack trace: $stackTrace');
       return Response.internalServerError(
-        body: jsonEncode({'error': 'Failed to fetch appointments: $e'}),
+        body: jsonEncode({
+          'error': 'Failed to fetch appointments: $e',
+          'details': stackTrace.toString()
+        }),
       );
     }
   }
@@ -327,9 +363,44 @@ class AdminRoutes {
         return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
       }
 
-      final dailySummary = await _database.query('SELECT * FROM daily_appointment_summary');
-      final monthlyRegistrations = await _database.query('SELECT * FROM monthly_user_registrations');
-      final purposeDistribution = await _database.query('SELECT * FROM appointment_purpose_distribution');
+      // Get daily appointment summary directly
+      final dailySummary = await _database.query('''
+        SELECT
+          DATE(appointment_date) as appointment_day,
+          COUNT(*) as total_appointments,
+          COUNT(CASE WHEN apt_status = 'scheduled' THEN 1 END) as scheduled,
+          COUNT(CASE WHEN apt_status = 'completed' THEN 1 END) as completed,
+          COUNT(CASE WHEN apt_status = 'cancelled' THEN 1 END) as cancelled
+        FROM appointments
+        WHERE appointment_date >= CURRENT_DATE - INTERVAL '30 days'
+        GROUP BY DATE(appointment_date)
+        ORDER BY appointment_day DESC
+      ''');
+
+      // Get monthly user registrations directly
+      final monthlyRegistrations = await _database.query('''
+        SELECT
+          DATE_TRUNC('month', created_at) as registration_month,
+          COUNT(*) as total_registrations,
+          COUNT(CASE WHEN role = 'student' THEN 1 END) as student_registrations,
+          COUNT(CASE WHEN role = 'counselor' THEN 1 END) as counselor_registrations,
+          COUNT(CASE WHEN role = 'admin' THEN 1 END) as admin_registrations
+        FROM users
+        WHERE created_at >= CURRENT_DATE - INTERVAL '12 months'
+        GROUP BY DATE_TRUNC('month', created_at)
+        ORDER BY registration_month DESC
+      ''');
+
+      // Get appointment purpose distribution directly
+      final purposeDistribution = await _database.query('''
+        SELECT
+          COALESCE(NULLIF(purpose, ''), 'No Purpose Specified') as purpose_category,
+          COUNT(*) as appointment_count,
+          ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+        FROM appointments
+        GROUP BY COALESCE(NULLIF(purpose, ''), 'No Purpose Specified')
+        ORDER BY appointment_count DESC
+      ''');
 
       return Response.ok(jsonEncode({
         'daily_appointment_summary': dailySummary.map((row) => {
@@ -376,12 +447,12 @@ class AdminRoutes {
           a.appointment_date,
           a.purpose,
           a.course,
-          a.status,
+          a.apt_status,
           a.notes,
           CONCAT(s.first_name, ' ', s.last_name) as student_name,
           s.student_id as student_number,
-          s.grade_level,
-          s.section
+          s.status,
+          s.program
         FROM appointments a
         JOIN users s ON a.student_id = s.id
         WHERE a.counselor_id = @counselor_id
@@ -393,8 +464,8 @@ class AdminRoutes {
       final stats = await _database.query('''
         SELECT
           COUNT(*) as total_appointments,
-          COUNT(CASE WHEN status = 'scheduled' THEN 1 END) as scheduled,
-          COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+          COUNT(CASE WHEN apt_status = 'scheduled' THEN 1 END) as scheduled,
+          COUNT(CASE WHEN apt_status = 'completed' THEN 1 END) as completed,
           COUNT(CASE WHEN appointment_date >= CURRENT_DATE THEN 1 END) as upcoming
         FROM appointments
         WHERE counselor_id = @counselor_id
@@ -404,15 +475,15 @@ class AdminRoutes {
         'appointments': appointments.map((row) => {
           'id': row[0],
           'student_id': row[1],
-          'appointment_date': row[2] is DateTime ? (row[2] as DateTime).toIso8601String() : row[2].toString(),
+          'appointment_date': row[2] is DateTime ? (row[2] as DateTime).toIso8601String() : row[2]?.toString(),
           'purpose': row[3]?.toString() ?? '',
           'course': row[4]?.toString() ?? '',
-          'status': row[5]?.toString() ?? 'scheduled',
+          'apt_status': row[5]?.toString() ?? 'scheduled',
           'notes': row[6]?.toString() ?? '',
           'student_name': row[7]?.toString() ?? 'Unknown Student',
           'student_number': row[8]?.toString(),
-          'grade_level': row[9]?.toString(),
-          'section': row[10]?.toString(),
+          'status': row[9]?.toString(),
+          'program': row[10]?.toString(),
         }).toList(),
         'statistics': stats.isNotEmpty ? {
           'total_appointments': stats.first[0],
@@ -443,14 +514,14 @@ class AdminRoutes {
           s.student_id,
           s.first_name,
           s.last_name,
-          s.grade_level,
-          s.section,
+          s.status,
+          s.program,
           COUNT(a.id) as total_appointments,
           MAX(a.appointment_date) as last_appointment
         FROM users s
         LEFT JOIN appointments a ON s.id = a.student_id AND a.counselor_id = @counselor_id
         WHERE s.role = 'student'
-        GROUP BY s.id, s.username, s.email, s.student_id, s.first_name, s.last_name, s.grade_level, s.section
+        GROUP BY s.id, s.username, s.email, s.student_id, s.first_name, s.last_name, s.status, s.program
         ORDER BY s.last_name, s.first_name
       ''', {'counselor_id': counselorId});
 
@@ -461,8 +532,8 @@ class AdminRoutes {
         'student_id': row[3],
         'first_name': row[4],
         'last_name': row[5],
-        'grade_level': row[6],
-        'section': row[7],
+        'status': row[6],
+        'programS': row[7],
         'total_appointments': row[8],
         'last_appointment': row[9]?.toString(),
       }).toList();
@@ -516,8 +587,8 @@ class AdminRoutes {
         params['course'] = data['course'];
       }
       if (data['status'] != null) {
-        updateFields.add('status = @status');
-        params['status'] = data['status'];
+        updateFields.add('apt_status = @apt_status');
+        params['apt_status'] = data['status'];
       }
       if (data['notes'] != null) {
         updateFields.add('notes = @notes');
@@ -881,16 +952,76 @@ class AdminRoutes {
         return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
       }
 
-      final result = await _database.query('SELECT * FROM admin_case_summary');
+      // Get re-admission cases summary directly
+      final reAdmissionSummary = await _database.query('''
+        SELECT
+          're_admission' as case_type,
+          COUNT(*) as total_cases,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_cases,
+          COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_cases,
+          COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected_cases,
+          COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as recent_cases
+        FROM re_admission_cases
+      ''');
 
-      final summary = result.map((row) => {
-        'case_type': row[0],
-        'total_cases': row[1],
-        'pending_cases': row[2],
-        'approved_cases': row[3],
-        'rejected_cases': row[4],
-        'recent_cases': row[5],
-      }).toList();
+      // Get discipline cases summary directly
+      final disciplineSummary = await _database.query('''
+        SELECT
+          'discipline' as case_type,
+          COUNT(*) as total_cases,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_cases,
+          COUNT(CASE WHEN status = 'resolved' THEN 1 END) as approved_cases,
+          COUNT(CASE WHEN status = 'closed' THEN 1 END) as rejected_cases,
+          COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as recent_cases
+        FROM discipline_cases
+      ''');
+
+      // Get exit interviews summary directly
+      final exitInterviewSummary = await _database.query('''
+        SELECT
+          'exit_interview' as case_type,
+          COUNT(*) as total_cases,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_cases,
+          COUNT(CASE WHEN status = 'completed' THEN 1 END) as approved_cases,
+          COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as rejected_cases,
+          COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as recent_cases
+        FROM exit_interviews
+      ''');
+
+      final summary = [];
+
+      if (reAdmissionSummary.isNotEmpty) {
+        summary.add({
+          'case_type': reAdmissionSummary.first[0],
+          'total_cases': reAdmissionSummary.first[1],
+          'pending_cases': reAdmissionSummary.first[2],
+          'approved_cases': reAdmissionSummary.first[3],
+          'rejected_cases': reAdmissionSummary.first[4],
+          'recent_cases': reAdmissionSummary.first[5],
+        });
+      }
+
+      if (disciplineSummary.isNotEmpty) {
+        summary.add({
+          'case_type': disciplineSummary.first[0],
+          'total_cases': disciplineSummary.first[1],
+          'pending_cases': disciplineSummary.first[2],
+          'approved_cases': disciplineSummary.first[3],
+          'rejected_cases': disciplineSummary.first[4],
+          'recent_cases': disciplineSummary.first[5],
+        });
+      }
+
+      if (exitInterviewSummary.isNotEmpty) {
+        summary.add({
+          'case_type': exitInterviewSummary.first[0],
+          'total_cases': exitInterviewSummary.first[1],
+          'pending_cases': exitInterviewSummary.first[2],
+          'approved_cases': exitInterviewSummary.first[3],
+          'rejected_cases': exitInterviewSummary.first[4],
+          'recent_cases': exitInterviewSummary.first[5],
+        });
+      }
 
       return Response.ok(jsonEncode({'case_summary': summary}));
     } catch (e) {

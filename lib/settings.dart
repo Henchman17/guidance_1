@@ -55,6 +55,16 @@ class _SettingsPageState extends State<SettingsPage> {
     // This function is left empty or can trigger a callback to a theme provider if implemented.
   }
 
+  Future<void> _signOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Clear all stored preferences
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+      (route) => false, // Remove all previous routes
+    );
+  }
+
   Future<void> _toggleDarkMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('darkMode', value);
@@ -524,8 +534,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
-              // Removed onTap to disable logout arrow functionality
-              onTap: null,
+              onTap: _signOut,
             ),
           ],
         ),

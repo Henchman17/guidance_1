@@ -275,8 +275,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 _buildDetailRow('Student ID', user['student_id'] ?? 'N/A'),
                 _buildDetailRow('First Name', user['first_name'] ?? 'N/A'),
                 _buildDetailRow('Last Name', user['last_name'] ?? 'N/A'),
-                _buildDetailRow('Grade Level', user['grade_level'] ?? 'N/A'),
-                _buildDetailRow('Section', user['section'] ?? 'N/A'),
+                _buildDetailRow('Status', user['status'] ?? 'N/A'),
+                _buildDetailRow('Program', user['program'] ?? 'N/A'),
               ],
             ],
           ),
@@ -354,8 +354,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     final studentIdController = TextEditingController();
     final firstNameController = TextEditingController();
     final lastNameController = TextEditingController();
-    final gradeLevelController = TextEditingController();
-    final sectionController = TextEditingController();
+    final statusController = TextEditingController();
+    final programController = TextEditingController();
     String selectedRole = 'student';
 
     showDialog(
@@ -409,12 +409,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     decoration: const InputDecoration(labelText: 'Last Name'),
                   ),
                   TextFormField(
-                    controller: gradeLevelController,
-                    decoration: const InputDecoration(labelText: 'Grade Level'),
+                    controller: statusController,
+                    decoration: const InputDecoration(labelText: 'Status'),
                   ),
                   TextFormField(
-                    controller: sectionController,
-                    decoration: const InputDecoration(labelText: 'Section'),
+                    controller: programController,
+                    decoration: const InputDecoration(labelText: 'Program'),
                   ),
                 ],
               ],
@@ -444,8 +444,8 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       'student_id': studentIdController.text,
                       'first_name': firstNameController.text,
                       'last_name': lastNameController.text,
-                      'grade_level': gradeLevelController.text,
-                      'section': sectionController.text,
+                      'status': statusController.text,
+                      'program': programController.text,
                     });
                   }
 

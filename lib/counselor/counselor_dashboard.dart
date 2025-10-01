@@ -5,7 +5,6 @@ import '../login_page.dart';
 import '../settings.dart';
 import 'counselor_students_page.dart';
 import 'counselor_appointments_page.dart';
-import 'counselor_sessions_page.dart';
 
 class CounselorDashboardPage extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -94,38 +93,44 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
 
   Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
     return Card(
-      elevation: 6,
-      margin: const EdgeInsets.all(8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      margin: const EdgeInsets.only(left: 4, right: 4, bottom: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withOpacity(0.3), width: 1),
+      ),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: color.withOpacity(0.05),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32, color: color),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 24, color: color),
+            ),
             const SizedBox(height: 8),
             Text(
               value,
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               title,
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: Colors.grey[700],
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
@@ -136,95 +141,9 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
     );
   }
 
-  Widget _buildQuickActions() {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Quick Actions',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pushNamed(context, '/counselor-students'),
-                    icon: const Icon(Icons.people),
-                    label: const Text('Manage Students'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pushNamed(context, '/counselor-appointments'),
-                    icon: const Icon(Icons.calendar_today),
-                    label: const Text('View Appointments'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pushNamed(context, '/counselor-sessions'),
-                    icon: const Icon(Icons.event_note),
-                    label: const Text('Counseling Sessions'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: fetchDashboardData,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh Data'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildRecentStudents() {
+    final recentStudents = dashboardData?['recent_students'] as List<dynamic>? ?? [];
+
     return Card(
       elevation: 4,
       margin: const EdgeInsets.all(16),
@@ -252,27 +171,31 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
               ],
             ),
             const SizedBox(height: 16),
-            _buildStudentItem(
-              'John Doe',
-              'Grade 12 - Section A',
-              'Last session: 2 days ago',
-              Icons.person,
-              Colors.blue,
-            ),
-            _buildStudentItem(
-              'Jane Smith',
-              'Grade 11 - Section B',
-              'Last session: 1 week ago',
-              Icons.person,
-              Colors.green,
-            ),
-            _buildStudentItem(
-              'Mike Johnson',
-              'Grade 10 - Section C',
-              'Pending appointment',
-              Icons.person,
-              Colors.orange,
-            ),
+            if (recentStudents.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'No recent students',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              ...recentStudents.map((student) {
+                final name = '${student['first_name']} ${student['last_name']}';
+                final details = 'Grade ${student['grade_level']} - Section ${student['section']}';
+                final lastAppointment = student['last_appointment_date'] != null
+                    ? 'Last appointment: ${DateTime.parse(student['last_appointment_date']).toLocal().toString().split(' ')[0]}'
+                    : 'No recent appointment';
+                return _buildStudentItem(
+                  name,
+                  details,
+                  lastAppointment,
+                  Icons.person,
+                  Colors.blue,
+                );
+              }),
           ],
         ),
       ),
@@ -327,6 +250,8 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
   }
 
   Widget _buildUpcomingAppointments() {
+    final upcomingAppointments = dashboardData?['upcoming_appointments'] as List<dynamic>? ?? [];
+
     return Card(
       elevation: 4,
       margin: const EdgeInsets.all(16),
@@ -354,27 +279,34 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
               ],
             ),
             const SizedBox(height: 16),
-            _buildAppointmentItem(
-              'John Doe',
-              'Academic Counseling',
-              'Today, 2:00 PM',
-              Icons.calendar_today,
-              Colors.blue,
-            ),
-            _buildAppointmentItem(
-              'Jane Smith',
-              'Career Guidance',
-              'Tomorrow, 10:00 AM',
-              Icons.calendar_today,
-              Colors.green,
-            ),
-            _buildAppointmentItem(
-              'Mike Johnson',
-              'Personal Counseling',
-              'Friday, 3:00 PM',
-              Icons.calendar_today,
-              Colors.orange,
-            ),
+            if (upcomingAppointments.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'No upcoming appointments',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              ...upcomingAppointments.map((appointment) {
+                final studentName = appointment['student_name'] ?? 'Unknown Student';
+                final purpose = appointment['purpose'] ?? 'General Counseling';
+                final appointmentDate = appointment['appointment_date'] != null
+                    ? DateTime.parse(appointment['appointment_date']).toLocal()
+                    : DateTime.now();
+                final timeString = '${appointmentDate.hour.toString().padLeft(2, '0')}:${appointmentDate.minute.toString().padLeft(2, '0')}';
+                final dateString = appointmentDate.toString().split(' ')[0];
+                final displayTime = 'Date: $dateString, Time: $timeString';
+                return _buildAppointmentItem(
+                  studentName,
+                  purpose,
+                  displayTime,
+                  Icons.calendar_today,
+                  Colors.blue,
+                );
+              }),
           ],
         ),
       ),
@@ -462,70 +394,97 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
 
     final stats = dashboardData?['statistics'] ?? {};
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFE8F5E9), Color(0xFFFFFFFF)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: RefreshIndicator(
-        onRefresh: fetchDashboardData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              // Metrics Grid
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _buildMetricCard(
-                      'Total Students',
-                      stats['total_students']?.toString() ?? '0',
-                      Icons.school,
-                      Colors.blue,
-                    ),
-                    _buildMetricCard(
-                      'Counseling Sessions',
-                      stats['counseling_sessions']?.toString() ?? '0',
-                      Icons.event_note,
-                      Colors.green,
-                    ),
-                    _buildMetricCard(
-                      'Pending Requests',
-                      stats['pending_requests']?.toString() ?? '0',
-                      Icons.pending_actions,
-                      Colors.orange,
-                    ),
-                    _buildMetricCard(
-                      'Completed Sessions',
-                      stats['completed_sessions']?.toString() ?? '0',
-                      Icons.check_circle,
-                      Colors.purple,
-                    ),
-                  ],
-                ),
+    return Column(
+      children: [
+        // Title bar always above
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Counselor Dashboard',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
-
-              // Quick Actions
-              _buildQuickActions(),
-
-              // Recent Students
-              _buildRecentStudents(),
-
-              // Upcoming Appointments
-              _buildUpcomingAppointments(),
-
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
         ),
-      ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: fetchDashboardData,
+            displacement: 0,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  // Metrics Row
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 300,
+                            child: _buildMetricCard(
+                              'Total Students',
+                              stats['total_students']?.toString() ?? '0',
+                              Icons.school,
+                              Colors.blue,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 300,
+                            child: _buildMetricCard(
+                              'Appointments',
+                              stats['counseling_sessions']?.toString() ?? '0',
+                              Icons.event_note,
+                              Colors.green,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 300,
+                            child: _buildMetricCard(
+                              'Pending Requests',
+                              stats['pending_requests']?.toString() ?? '0',
+                              Icons.pending_actions,
+                              Colors.orange,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 300,
+                            child: _buildMetricCard(
+                              'Completed Sessions',
+                              stats['completed_sessions']?.toString() ?? '0',
+                              Icons.check_circle,
+                              Colors.purple,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Recent Students
+                  _buildRecentStudents(),
+
+                  // Upcoming Appointments
+                  _buildUpcomingAppointments(),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -542,10 +501,6 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
       NavigationRailDestination(
         icon: Icon(Icons.calendar_today),
         label: Text('Appointments'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.event_note),
-        label: Text('Sessions'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.settings),
@@ -569,13 +524,10 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
       case 2: // Appointments
         setState(() => _selectedIndex = 2);
         break;
-      case 3: // Sessions
+      case 3: // Settings
         setState(() => _selectedIndex = 3);
         break;
-      case 4: // Settings
-        setState(() => _selectedIndex = 4);
-        break;
-      case 5: // Logout
+      case 4: // Logout
         _handleLogout();
         break;
     }
@@ -605,7 +557,7 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
                 ),
                 const SizedBox(width: 10),
                 const Text(
-                  "PLSP Guidance Counselor",
+                  "PLSP Guidance",
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -727,9 +679,7 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
                           ? CounselorStudentsPage(userData: _currentUser)
                           : _selectedIndex == 2
                               ? CounselorAppointmentsPage(userData: _currentUser)
-                              : _selectedIndex == 3
-                                  ? CounselorSessionsPage(userData: _currentUser)
-                                  : SettingsPage(userData: _currentUser),
+                              : SettingsPage(userData: _currentUser),
                 ),
               ],
             ),

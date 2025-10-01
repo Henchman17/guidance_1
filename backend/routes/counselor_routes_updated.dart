@@ -8,63 +8,89 @@ class CounselorRoutes {
 
   CounselorRoutes(this._database);
 
+  // Helper method for role-based authorization
+  Future<bool> _checkUserRole(int userId, String requiredRole) async {
+    final result = await _database.query(
+      'SELECT role FROM users WHERE id = @id',
+      {'id': userId},
+    );
+
+    if (result.isEmpty) return false;
+    final userRole = result.first[0];
+
+    // Admin has access to everything
+    if (userRole == 'admin') return true;
+
+    // Counselor has access to counselor and student functions
+    if (requiredRole == 'counselor' && userRole == 'counselor') return true;
+    if (requiredRole == 'student' && (userRole == 'counselor' || userRole == 'student')) return true;
+
+    return userRole == requiredRole;
+  }
+
   Future<Response> getCounselorDashboard(Request request) async {
     try {
-      final userId = request.url.queryParameters['user_id'];
-      if (userId == null) {
-        return Response.badRequest(
-          body: jsonEncode({'error': 'user_id parameter is required'}),
-        );
+      final userId = int.parse(request.url.queryParameters['user_id'] ?? '0');
+      if (!await _checkUserRole(userId, 'counselor')) {
+        return Response.forbidden(jsonEncode({'error': 'Counselor access required'}));
       }
 
-      // Verify user is a counselor
-      final userResult = await _database.query(
-        'SELECT role FROM users WHERE id = @id',
-        {'id': int.parse(userId)},
-      );
+      // Get counselor's appointments
+      final appointments = await _database.query('''
+        SELECT
+          a.id,
+          a.student_id,
+          a.appointment_date,
+          a.purpose,
+          a.course,
+          a.apt_status,
+          a.notes,
+          CONCAT(s.first_name, ' ', s.last_name) as student_name,
+          s.student_id as student_number,
+          s.status,
+          s.program
+        FROM appointments a
+        JOIN users s ON a.student_id = s.id
+        WHERE a.counselor_id = @counselor_id
+        ORDER BY a.appointment_date DESC
+        LIMIT 10
+      ''', {'counselor_id': userId});
 
-      if (userResult.isEmpty || userResult.first[0] != 'counselor') {
-        return Response.forbidden(
-          jsonEncode({'error': 'Access denied. Counselor role required.'}),
-        );
-      }
-
-      // Get dashboard statistics
-      final totalStudentsResult = await _database.query(
-        'SELECT COUNT(*) FROM users WHERE role = @role',
-        {'role': 'student'},
-      );
-
-      final counselingSessionsResult = await _database.query('''
-        SELECT COUNT(*) FROM appointments
-        WHERE counselor_id = @counselor_id AND status = @status
-      ''', {'counselor_id': int.parse(userId), 'status': 'completed'});
-
-      final pendingRequestsResult = await _database.query('''
-        SELECT COUNT(*) FROM appointments
-        WHERE counselor_id = @counselor_id AND status = @status
-      ''', {'counselor_id': int.parse(userId), 'status': 'pending'});
-
-      final completedSessionsResult = await _database.query('''
-        SELECT COUNT(*) FROM appointments
-        WHERE counselor_id = @counselor_id AND status = @status
-      ''', {'counselor_id': int.parse(userId), 'status': 'completed'});
-
-      final statistics = {
-        'total_students': totalStudentsResult.first[0] ?? 0,
-        'counseling_sessions': counselingSessionsResult.first[0] ?? 0,
-        'pending_requests': pendingRequestsResult.first[0] ?? 0,
-        'completed_sessions': completedSessionsResult.first[0] ?? 0,
-      };
+      // Get counselor's statistics
+      final stats = await _database.query('''
+        SELECT
+          COUNT(*) as total_appointments,
+          COUNT(CASE WHEN apt_status = 'scheduled' THEN 1 END) as scheduled,
+          COUNT(CASE WHEN apt_status = 'completed' THEN 1 END) as completed,
+          COUNT(CASE WHEN appointment_date >= CURRENT_DATE THEN 1 END) as upcoming
+        FROM appointments
+        WHERE counselor_id = @counselor_id
+      ''', {'counselor_id': userId});
 
       return Response.ok(jsonEncode({
-        'success': true,
-        'statistics': statistics,
-        'counselor_id': userId,
+        'appointments': appointments.map((row) => {
+          'id': row[0],
+          'student_id': row[1],
+          'appointment_date': row[2] is DateTime ? (row[2] as DateTime).toIso8601String() : row[2].toString(),
+          'purpose': row[3]?.toString() ?? '',
+          'course': row[4]?.toString() ?? '',
+          'apt_status': row[5]?.toString() ?? 'scheduled',
+          'notes': row[6]?.toString() ?? '',
+          'student_name': row[7]?.toString() ?? 'Unknown Student',
+          'student_number': row[8]?.toString(),
+          'status': row[9]?.toString(),
+          'program': row[10]?.toString(),
+        }).toList(),
+        'statistics': stats.isNotEmpty ? {
+          'total_appointments': stats.first[0],
+          'scheduled': stats.first[1],
+          'completed': stats.first[2],
+          'upcoming': stats.first[3],
+        } : null,
       }));
     } catch (e) {
       return Response.internalServerError(
-        body: jsonEncode({'error': 'Failed to fetch dashboard data: $e'}),
+        body: jsonEncode({'error': 'Failed to fetch counselor dashboard: $e'}),
       );
     }
   }
@@ -95,7 +121,7 @@ class CounselorRoutes {
 
       // Check if the appointment exists and belongs to this counselor
       final appointmentResult = await _database.query(
-        'SELECT id, counselor_id, status FROM appointments WHERE id = @id',
+        'SELECT id, counselor_id, apt_status FROM appointments WHERE id = @id',
         {'id': int.parse(appointmentId)},
       );
 
@@ -121,7 +147,7 @@ class CounselorRoutes {
       // Update the appointment status to completed
       await _database.execute('''
         UPDATE appointments
-        SET status = 'completed'
+        SET apt_status = 'completed'
         WHERE id = @id
       ''', {
         'id': int.parse(appointmentId),
@@ -164,7 +190,7 @@ class CounselorRoutes {
 
       // Check if the appointment exists and belongs to this counselor
       final appointmentResult = await _database.query(
-        'SELECT id, counselor_id, status FROM appointments WHERE id = @id',
+        'SELECT id, counselor_id, apt_status FROM appointments WHERE id = @id',
         {'id': int.parse(appointmentId)},
       );
 
@@ -190,7 +216,7 @@ class CounselorRoutes {
       // Update the appointment status to confirmed
       await _database.execute('''
         UPDATE appointments
-        SET status = 'confirmed'
+        SET apt_status = 'confirmed'
         WHERE id = @id
       ''', {
         'id': int.parse(appointmentId),
@@ -263,7 +289,7 @@ class CounselorRoutes {
             approved_by = @counselor_id,
             approved_at = NOW(),
             rejection_reason = NULL,
-            status = 'scheduled'
+            apt_status = 'scheduled'
         WHERE id = @id
       ''', {
         'counselor_id': counselorId,
@@ -338,7 +364,7 @@ class CounselorRoutes {
             approved_by = @counselor_id,
             approved_at = NOW(),
             rejection_reason = @rejection_reason,
-            status = 'cancelled'
+            apt_status = 'cancelled'
         WHERE id = @id
       ''', {
         'counselor_id': counselorId,
@@ -422,7 +448,7 @@ class CounselorRoutes {
       // Update the appointment status to cancelled with reason
       await _database.execute('''
         UPDATE appointments
-        SET status = 'cancelled',
+        SET apt_status = 'cancelled',
             cancellation_reason = @cancellation_reason,
             cancelled_by = @counselor_id,
             cancelled_at = NOW()
@@ -514,28 +540,14 @@ class CounselorRoutes {
 
   Future<Response> getCounselorStudents(Request request) async {
     try {
-      final userId = request.url.queryParameters['user_id'];
-      if (userId == null) {
-        return Response.badRequest(
-          body: jsonEncode({'error': 'user_id parameter is required'}),
-        );
-      }
-
-      // Verify user is a counselor
-      final userResult = await _database.query(
-        'SELECT role FROM users WHERE id = @id',
-        {'id': int.parse(userId)},
-      );
-
-      if (userResult.isEmpty || userResult.first[0] != 'counselor') {
-        return Response.forbidden(
-          jsonEncode({'error': 'Access denied. Counselor role required.'}),
-        );
+      final userId = int.parse(request.url.queryParameters['user_id'] ?? '0');
+      if (!await _checkUserRole(userId, 'counselor')) {
+        return Response.forbidden(jsonEncode({'error': 'Counselor access required'}));
       }
 
       final result = await _database.query('''
         SELECT id, username, email, role, created_at,
-               student_id, first_name, last_name, grade_level, section
+               student_id, first_name, last_name, status, program
         FROM users
         WHERE role = 'student'
         ORDER BY last_name, first_name
@@ -550,8 +562,8 @@ class CounselorRoutes {
         'student_id': row[5],
         'first_name': row[6],
         'last_name': row[7],
-        'grade_level': row[8],
-        'section': row[9],
+        'status': row[8],
+        'program': row[9],
       }).toList();
 
       return Response.ok(jsonEncode({
@@ -595,15 +607,15 @@ class CounselorRoutes {
           a.appointment_date,
           a.purpose,
           a.course,
-          a.status,
+          a.apt_status,
           a.notes,
           a.created_at,
           CONCAT(s.first_name, ' ', s.last_name) as student_name,
           s.student_id as student_number,
           s.first_name as student_first_name,
           s.last_name as student_last_name,
-          s.grade_level,
-          s.section
+          s.status,
+          s.program
         FROM appointments a
         JOIN users s ON a.student_id = s.id
         WHERE a.counselor_id = @counselor_id
@@ -617,15 +629,15 @@ class CounselorRoutes {
         'appointment_date': row[3] is DateTime ? (row[3] as DateTime).toIso8601String() : row[3].toString(),
         'purpose': row[4]?.toString() ?? '',
         'course': row[5]?.toString() ?? '',
-        'status': row[6]?.toString() ?? 'scheduled',
+        'apt_status': row[6]?.toString() ?? 'scheduled',
         'notes': row[7]?.toString() ?? '',
         'created_at': row[8] is DateTime ? (row[8] as DateTime).toIso8601String() : row[8].toString(),
         'student_name': row[9]?.toString() ?? 'Unknown Student',
         'student_number': row[10]?.toString(),
         'student_first_name': row[11]?.toString(),
         'student_last_name': row[12]?.toString(),
-        'grade_level': row[13]?.toString(),
-        'section': row[14]?.toString(),
+        'status': row[13]?.toString(),
+        'program': row[14]?.toString(),
         'date': row[3] is DateTime ? (row[3] as DateTime).toString().split(' ')[0] : row[3].toString().split(' ')[0],
         'time': row[3] is DateTime ? (row[3] as DateTime).toString().split(' ')[1].substring(0, 5) : '00:00',
         'type': row[4]?.toString() ?? 'General Counseling',
@@ -674,15 +686,15 @@ class CounselorRoutes {
           a.appointment_date,
           a.purpose,
           a.course,
-          a.status,
+          a.apt_status,
           a.notes,
           a.created_at,
           CONCAT(s.first_name, ' ', s.last_name) as student_name,
           s.student_id as student_number,
           s.first_name as student_first_name,
           s.last_name as student_last_name,
-          s.grade_level,
-          s.section
+          s.status,
+          s.program
         FROM appointments a
         JOIN users s ON a.student_id = s.id
         WHERE a.counselor_id = @counselor_id AND a.status IN ('completed', 'in_progress')
@@ -697,14 +709,14 @@ class CounselorRoutes {
         'start_time': row[3] is DateTime ? (row[3] as DateTime).toString().split(' ')[1].substring(0, 5) : '09:00',
         'end_time': row[3] is DateTime ? (row[3] as DateTime).add(const Duration(hours: 1)).toString().split(' ')[1].substring(0, 5) : '10:00',
         'type': row[4]?.toString() ?? 'General Counseling',
-        'status': row[6]?.toString() == 'completed' ? 'completed' : 'in_progress',
+        'apt_status': row[6]?.toString() == 'completed' ? 'completed' : 'in_progress',
         'notes': row[7]?.toString() ?? 'Session completed successfully',
         'student_name': row[9]?.toString() ?? 'Unknown Student',
         'student_number': row[10]?.toString(),
         'student_first_name': row[11]?.toString(),
         'student_last_name': row[12]?.toString(),
-        'grade_level': row[13]?.toString(),
-        'section': row[14]?.toString(),
+        'status': row[13]?.toString(),
+        'program': row[14]?.toString(),
       }).toList();
 
       return Response.ok(jsonEncode({
@@ -748,7 +760,7 @@ class CounselorRoutes {
           a.appointment_date,
           a.purpose,
           a.course,
-          a.status,
+          a.apt_status,
           a.approval_status,
           a.approved_by,
           a.approved_at,
@@ -759,8 +771,8 @@ class CounselorRoutes {
           s.student_id as student_number,
           s.first_name as student_first_name,
           s.last_name as student_last_name,
-          s.grade_level,
-          s.section
+          s.status,
+          s.program
         FROM appointments a
         JOIN users s ON a.student_id = s.id
         WHERE a.counselor_id = @counselor_id
@@ -774,7 +786,7 @@ class CounselorRoutes {
         'appointment_date': row[3] is DateTime ? (row[3] as DateTime).toIso8601String() : row[3].toString(),
         'purpose': row[4]?.toString() ?? '',
         'course': row[5]?.toString() ?? '',
-        'status': row[6]?.toString() ?? 'scheduled',
+        'apt_status': row[6]?.toString() ?? 'scheduled',
         'approval_status': row[7]?.toString() ?? 'pending',
         'approved_by': row[8],
         'approved_at': row[9] is DateTime ? (row[9] as DateTime).toIso8601String() : row[9]?.toString(),
@@ -785,8 +797,8 @@ class CounselorRoutes {
         'student_number': row[14]?.toString(),
         'student_first_name': row[15]?.toString(),
         'student_last_name': row[16]?.toString(),
-        'grade_level': row[17]?.toString(),
-        'section': row[18]?.toString(),
+        'status': row[17]?.toString(),
+        'program': row[18]?.toString(),
       }).toList();
 
       return Response.ok(jsonEncode({

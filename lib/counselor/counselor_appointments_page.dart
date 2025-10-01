@@ -69,12 +69,12 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
       return appointments;
     }
     return appointments.where((appointment) {
-      return appointment['status'] == selectedFilter.toLowerCase();
+      return appointment['apt_status'] == selectedFilter.toLowerCase();
     }).toList();
   }
 
   Widget _buildAppointmentCard(Map<String, dynamic> appointment) {
-    final status = appointment['status'] ?? 'pending';
+    final status = appointment['apt_status'] ?? 'pending';
     final approvalStatus = appointment['approval_status'] ?? 'approved';
     final statusColor = _getStatusColor(status);
     final statusIcon = _getStatusIcon(status);
@@ -380,7 +380,7 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
 
       if (response.statusCode == 200) {
         setState(() {
-          appointment['status'] = 'completed';
+          appointment['apt_status'] = 'completed';
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Appointment with ${appointment['student_name']} marked as completed')),
@@ -451,7 +451,7 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
 
       if (response.statusCode == 200) {
         setState(() {
-          appointment['status'] = 'confirmed';
+          appointment['apt_status'] = 'confirmed';
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Appointment with ${appointment['student_name']} has been confirmed')),
@@ -703,7 +703,7 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
 
                 if (response.statusCode == 200) {
                   setState(() {
-                    appointment['status'] = 'cancelled';
+                    appointment['apt_status'] = 'cancelled';
                     appointment['cancellation_reason'] = cancellationReason;
                   });
                   ScaffoldMessenger.of(context).showSnackBar(

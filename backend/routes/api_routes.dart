@@ -3,13 +3,81 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import '../connection.dart';
 import 'counselor_routes_updated.dart';
+import 'admin_routes.dart';
 
 class ApiRoutes {
   final DatabaseConnection _database;
   late final CounselorRoutes counselorRoutes;
+  late final AdminRoutes adminRoutes;
+  late final Router router;
 
   ApiRoutes(this._database) {
     counselorRoutes = CounselorRoutes(_database);
+    adminRoutes = AdminRoutes(_database);
+    _setupRoutes();
+  }
+
+  void _setupRoutes() {
+    router = Router();
+
+    // Health check
+    router.get('/health', healthCheck);
+
+    // User routes
+    router.post('/api/users/login', login);
+    router.get('/api/users', getAllUsers);
+    router.get('/api/users/<id>', getUserById);
+    router.post('/api/users', createUser);
+    router.put('/api/users/<id>', updateUser);
+    router.delete('/api/users/<id>', deleteUser);
+
+    // Guidance system specific routes
+    router.get('/api/students', getAllStudents);
+    router.get('/api/students/<id>', getStudentById);
+    router.post('/api/appointments', createAppointment);
+    router.get('/api/appointments', getAppointments);
+    router.put('/api/appointments/<id>', updateAppointment);
+    router.delete('/api/appointments/<id>', deleteAppointment);
+    router.get('/api/courses', getCourses);
+
+    // JOIN examples for signup process
+    router.get('/api/examples/join-signup', getSignupJoinExamples);
+
+    // Routine Interview routes
+    router.post('/api/routine-interviews', createRoutineInterview);
+    router.get('/api/routine-interviews/<userId>', getRoutineInterview);
+    router.put('/api/routine-interviews/<userId>', updateRoutineInterview);
+
+    // Counselor routes
+    router.get('/api/counselor/dashboard', counselorRoutes.getCounselorDashboard);
+    router.get('/api/counselor/students', counselorRoutes.getCounselorStudents);
+    router.get('/api/counselor/appointments', counselorRoutes.getCounselorAppointments);
+    router.get('/api/counselor/sessions', counselorRoutes.getCounselorSessions);
+    router.put('/api/counselor/appointments/<id>/complete', counselorRoutes.completeAppointment);
+    router.put('/api/counselor/appointments/<id>/confirm', counselorRoutes.confirmAppointment);
+    router.put('/api/counselor/appointments/<id>/approve', counselorRoutes.approveAppointment);
+    router.put('/api/counselor/appointments/<id>/reject', counselorRoutes.rejectAppointment);
+    router.put('/api/counselor/appointments/<id>/cancel', counselorRoutes.cancelAppointment);
+    router.delete('/api/counselor/appointments/<id>', counselorRoutes.deleteAppointment);
+    router.get('/api/counselor/guidance-schedules', counselorRoutes.getCounselorGuidanceSchedules);
+    router.put('/api/counselor/guidance-schedules/<id>/approve', counselorRoutes.approveGuidanceSchedule);
+    router.put('/api/counselor/guidance-schedules/<id>/reject', counselorRoutes.rejectGuidanceSchedule);
+
+    // Admin routes
+    router.get('/api/admin/dashboard', adminRoutes.getAdminDashboard);
+    router.get('/api/admin/users', adminRoutes.getAdminUsers);
+    router.post('/api/admin/users', adminRoutes.createAdminUser);
+    router.put('/api/admin/users/<id>', adminRoutes.updateAdminUser);
+    router.delete('/api/admin/users/<id>', adminRoutes.deleteAdminUser);
+    router.get('/api/admin/appointments', adminRoutes.getAdminAppointments);
+    router.get('/api/admin/analytics', adminRoutes.getAdminAnalytics);
+    router.get('/api/admin/case-summary', adminRoutes.getCaseSummary);
+    router.get('/api/admin/re-admission-cases', adminRoutes.getReAdmissionCases);
+    router.put('/api/admin/re-admission-cases/<id>', adminRoutes.updateReAdmissionCase);
+    router.get('/api/admin/discipline-cases', adminRoutes.getDisciplineCases);
+    router.put('/api/admin/discipline-cases/<id>', adminRoutes.updateDisciplineCase);
+    router.get('/api/admin/exit-interviews', adminRoutes.getExitInterviews);
+    router.put('/api/admin/exit-interviews/<id>', adminRoutes.updateExitInterview);
   }
 
   Future<Response> healthCheck(Request request) async {
@@ -57,7 +125,7 @@ class ApiRoutes {
       // Build query based on provided credentials
       String query = '''
         SELECT id, username, email, role, created_at,
-               student_id, first_name, last_name, grade_level, section
+               student_id, first_name, last_name
         FROM users
         WHERE password = @password
       ''';
@@ -88,12 +156,10 @@ class ApiRoutes {
         'username': username,
         'email': row[2],
         'role': row[3],
-        'created_at': row[4]?.toIso8601String(),
+        'created_at': row[4] is DateTime ? (row[4] as DateTime).toIso8601String() : row[4]?.toString(),
         'student_id': row[5], // Will be null for non-students
         'first_name': row[6], // Will be null for non-students
         'last_name': row[7], // Will be null for non-students
-        'grade_level': row[8], // Will be null for non-students
-        'section': row[9], // Will be null for non-students
         'message': 'Login successful',
       };
 
@@ -113,7 +179,7 @@ class ApiRoutes {
         'username': row[1],
         'email': row[2],
         'role': row[3],
-        'created_at': row[4]?.toIso8601String(),
+        'created_at': row[4] is DateTime ? (row[4] as DateTime).toIso8601String() : row[4]?.toString(),
       }).toList();
       
       return Response.ok(jsonEncode({'users': users}));
@@ -127,7 +193,7 @@ class ApiRoutes {
   Future<Response> getUserById(Request request, String id) async {
     try {
       final result = await _database.query(
-        'SELECT id, username, email, role, created_at, student_id, first_name, last_name, grade_level, section FROM users WHERE id = @id',
+        'SELECT id, username, email, role, created_at, student_id, first_name, last_name FROM users WHERE id = @id',
         {'id': int.parse(id)},
       );
 
@@ -143,12 +209,10 @@ class ApiRoutes {
         'username': user[1],
         'email': user[2],
         'role': user[3],
-        'created_at': user[4]?.toIso8601String(),
+        'created_at': user[4] is DateTime ? (user[4] as DateTime).toIso8601String() : user[4]?.toString(),
         'student_id': user[5], // Include student-specific fields
         'first_name': user[6],
         'last_name': user[7],
-        'grade_level': user[8],
-        'section': user[9],
       }));
     } catch (e) {
       return Response.internalServerError(
@@ -178,17 +242,15 @@ class ApiRoutes {
           'student_id': data['student_id'] ?? 'STU${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}', // Use provided student_id or generate unique one
           'first_name': data['first_name'] ?? data['username'], // Use provided first_name or fallback to username
           'last_name': data['last_name'] ?? '', // Use provided last_name or empty
-          'grade_level': data['grade_level'] ?? 'Unknown', // Use provided grade_level or default
-          'section': data['section'] ?? 'Unknown', // Use provided section or default
         });
       }
 
       // Insert into users table (now includes all student data)
       final userResult = await _database.query(
         '''
-        INSERT INTO users (username, email, password, role, student_id, first_name, last_name, grade_level, section)
-        VALUES (@username, @email, @password, @role, @student_id, @first_name, @last_name, @grade_level, @section)
-        RETURNING id, username, email, role, created_at, student_id, first_name, last_name, grade_level, section
+        INSERT INTO users (username, email, password, role, student_id, first_name, last_name)
+        VALUES (@username, @email, @password, @role, @student_id, @first_name, @last_name)
+        RETURNING id, username, email, role, created_at, student_id, first_name, last_name
         ''',
         userData,
       );
@@ -203,8 +265,6 @@ class ApiRoutes {
         'student_id': userRow[5], // null for non-students
         'first_name': userRow[6], // null for non-students
         'last_name': userRow[7], // null for non-students
-        'grade_level': userRow[8], // null for non-students
-        'section': userRow[9], // null for non-students
         'message': 'User created successfully. Please login to continue.',
         'requires_login': true,
       };
@@ -281,7 +341,7 @@ class ApiRoutes {
 
       // Example 3: RIGHT JOIN - All students with their user info
       final rightJoinResult = await _database.query('''
-        SELECT s.student_id, s.first_name, s.last_name, s.grade_level,
+        SELECT s.student_id, s.first_name, s.last_name, s.status, s.program,
                u.username, u.email, u.role
         FROM students s
         RIGHT JOIN users u ON s.user_id = u.id
@@ -329,12 +389,12 @@ class ApiRoutes {
         },
         'right_join_example': {
           'description': 'RIGHT JOIN - All students with their user info',
-          'query': 'SELECT s.student_id, s.first_name, s.last_name, u.username, u.email FROM students s RIGHT JOIN users u ON s.user_id = u.id',
+          'query': 'SELECT s.student_id, s.first_name, s.last_name, u.status, u.username, u.email FROM students s RIGHT JOIN users u ON s.user_id = u.id',
           'results': rightJoinResult.map((row) => {
             'student_id': row[0],
             'first_name': row[1],
             'last_name': row[2],
-            'grade_level': row[3],
+            'status': row[3],
             'username': row[4],
             'email': row[5],
             'role': row[6],
@@ -366,7 +426,7 @@ class ApiRoutes {
     try {
       final result = await _database.query('''
         SELECT id, username, email, role, created_at,
-               student_id, first_name, last_name, grade_level, section
+               student_id, first_name, last_name, status, program
         FROM users
         WHERE role = 'student'
         ORDER BY last_name, first_name
@@ -377,12 +437,12 @@ class ApiRoutes {
         'username': row[1],
         'email': row[2],
         'role': row[3],
-        'created_at': row[4]?.toIso8601String(),
+        'created_at': row[4] is DateTime ? (row[4] as DateTime).toIso8601String() : row[4]?.toString(),
         'student_id': row[5],
         'first_name': row[6],
         'last_name': row[7],
-        'grade_level': row[8],
-        'section': row[9],
+        'status': row[8],
+        'program': row[9],
       }).toList();
 
       return Response.ok(jsonEncode({'students': students}));
@@ -397,7 +457,7 @@ class ApiRoutes {
     try {
       final result = await _database.query('''
         SELECT id, username, email, role, created_at,
-               student_id, first_name, last_name, grade_level, section
+               student_id, first_name, last_name
         FROM users
         WHERE id = @id AND role = 'student'
       ''', {'id': int.parse(id)});
@@ -414,12 +474,10 @@ class ApiRoutes {
         'username': student[1],
         'email': student[2],
         'role': student[3],
-        'created_at': student[4]?.toIso8601String(),
+        'created_at': student[4] is DateTime ? (student[4] as DateTime).toIso8601String() : student[4]?.toString(),
         'student_id': student[5],
         'first_name': student[6],
         'last_name': student[7],
-        'grade_level': student[8],
-        'section': student[9],
       }));
     } catch (e) {
       return Response.internalServerError(
@@ -475,8 +533,8 @@ class ApiRoutes {
       final studentId = data['user_id'];
 
       final result = await _database.execute('''
-        INSERT INTO appointments (student_id, counselor_id, appointment_date, purpose, course, status, notes)
-        VALUES (@student_id, @counselor_id, @appointment_date, @purpose, @course, @status, @notes)
+        INSERT INTO appointments (student_id, counselor_id, appointment_date, purpose, course, apt_status, notes)
+        VALUES (@student_id, @counselor_id, @appointment_date, @purpose, @course, @apt_status, @notes)
         RETURNING id
       ''', {
         'student_id': studentId,
@@ -484,7 +542,7 @@ class ApiRoutes {
         'appointment_date': DateTime.parse(data['appointment_date']),
         'purpose': data['purpose'] ?? '',
         'course': data['course'] ?? '',
-        'status': data['status'] ?? 'scheduled',
+        'apt_status': data['apt_status'] ?? 'pending',
         'notes': data['notes'] ?? '',
       });
 
@@ -526,7 +584,7 @@ class ApiRoutes {
           a.appointment_date,
           a.purpose,
           a.course,
-          a.status,
+          a.apt_status,
           a.notes,
           a.created_at,
           CONCAT(s.first_name, ' ', s.last_name) as student_name,
@@ -534,8 +592,8 @@ class ApiRoutes {
           s.student_id as student_number,
           s.first_name as student_first_name,
           s.last_name as student_last_name,
-          s.grade_level,
-          s.section,
+          s.status,
+          s.program,
           u.email as counselor_email
         FROM appointments a
         JOIN users s ON a.student_id = s.id
@@ -564,19 +622,19 @@ class ApiRoutes {
         'id': row[0],
         'student_id': row[1],
         'counselor_id': row[2],
-        'appointment_date': row[3] is DateTime ? (row[3] as DateTime).toIso8601String() : row[3].toString(),
+        'appointment_date': row[3] is DateTime ? (row[3] as DateTime).toIso8601String() : row[3]?.toString(),
         'purpose': row[4]?.toString() ?? '',
         'course': row[5]?.toString() ?? '',
-        'status': row[6]?.toString() ?? 'scheduled',
+        'apt_status': row[6]?.toString() ?? 'scheduled',
         'notes': row[7]?.toString() ?? '',
-        'created_at': row[8] is DateTime ? (row[8] as DateTime).toIso8601String() : row[8].toString(),
+        'created_at': row[8] is DateTime ? (row[8] as DateTime).toIso8601String() : row[8]?.toString(),
         'student_name': row[9]?.toString() ?? 'Unknown Student',
         'counselor_name': row[10]?.toString() ?? 'Unknown Counselor',
         'student_number': row[11]?.toString(),
         'student_first_name': row[12]?.toString(),
         'student_last_name': row[13]?.toString(),
-        'grade_level': row[14]?.toString(),
-        'section': row[15]?.toString(),
+        'status': row[14]?.toString(),
+        'program': row[15]?.toString(),
         'counselor_email': row[16]?.toString(),
       }).toList();
 
@@ -602,7 +660,7 @@ class ApiRoutes {
 
       // Check if appointment exists and user has permission
       final existingAppointment = await _database.query(
-        'SELECT student_id, counselor_id, status FROM appointments WHERE id = @id',
+        'SELECT student_id, counselor_id, apt_status FROM appointments WHERE id = @id',
         {'id': int.parse(id)},
       );
 
@@ -674,8 +732,8 @@ class ApiRoutes {
       }
 
       if (data['status'] != null && isCounselor) {
-        updateFields.add('status = @status');
-        params['status'] = data['status'];
+        updateFields.add('apt_status = @apt_status');
+        params['apt_status'] = data['status'];
       }
 
       if (data['notes'] != null) {
@@ -710,7 +768,7 @@ class ApiRoutes {
 
       // Check if appointment exists and user has permission
       final existingAppointment = await _database.query(
-        'SELECT student_id, counselor_id, status FROM appointments WHERE id = @id',
+        'SELECT student_id, counselor_id, apt_status FROM appointments WHERE id = @id',
         {'id': int.parse(id)},
       );
 
@@ -912,8 +970,8 @@ class ApiRoutes {
           u.student_id,
           u.first_name,
           u.last_name,
-          u.grade_level,
-          u.section
+          u.status,
+          u.program
         FROM routine_interviews ri
         JOIN users u ON ri.student_id = u.id
         WHERE u.id = @user_id
@@ -931,7 +989,7 @@ class ApiRoutes {
       return Response.ok(jsonEncode({
         'id': row[0],
         'name': row[1],
-        'date': row[2]?.toIso8601String(),
+        'date': row[2] is DateTime ? (row[2] as DateTime).toIso8601String() : row[2]?.toString(),
         'grade_course_year_section': row[3],
         'nickname': row[4],
         'ordinal_position': row[5],
@@ -948,13 +1006,13 @@ class ApiRoutes {
         'home_problems': row[16],
         'school_problems': row[17],
         'applicant_signature': row[18],
-        'signature_date': row[19]?.toIso8601String(),
-        'created_at': row[20]?.toIso8601String(),
+        'signature_date': row[19] is DateTime ? (row[19] as DateTime).toIso8601String() : row[19]?.toString(),
+        'created_at': row[20] is DateTime ? (row[20] as DateTime).toIso8601String() : row[20]?.toString(),
         'student_id': row[21],
         'first_name': row[22],
         'last_name': row[23],
-        'grade_level': row[24],
-        'section': row[25],
+        'status': row[24],
+        'program': row[25],
       }));
     } catch (e) {
       return Response.internalServerError(

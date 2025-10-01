@@ -125,11 +125,11 @@ class _AdminAppointmentsPageState extends State<AdminAppointmentsPage> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: getStatusColor(appointment['status']),
+                                color: getStatusColor(appointment['apt_status'] ?? 'pending'),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                appointment['status'].toString().toUpperCase(),
+                                (appointment['apt_status'] ?? 'pending').toString().toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,

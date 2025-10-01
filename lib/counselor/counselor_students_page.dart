@@ -5,7 +5,6 @@ import '../login_page.dart';
 import '../settings.dart';
 import 'counselor_dashboard.dart';
 import 'counselor_appointments_page.dart';
-import 'counselor_sessions_page.dart';
 
 class CounselorStudentsPage extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -220,7 +219,7 @@ class _CounselorStudentsPageState extends State<CounselorStudentsPage> {
 
   Widget _buildGuidanceScheduleCard(Map<String, dynamic> schedule) {
     final appointmentDate = DateTime.parse(schedule['appointment_date']);
-    final status = schedule['status'];
+    final status = schedule['apt_status'] ?? 'pending';
     final purpose = schedule['purpose'];
     final course = schedule['course'] ?? 'N/A';
     final studentName = schedule['student_name'] ?? 'Unknown Student';
@@ -563,21 +562,14 @@ class _CounselorStudentsPageState extends State<CounselorStudentsPage> {
           ),
         );
         break;
-      case 3: // Sessions
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => CounselorSessionsPage(userData: widget.userData),
-          ),
-        );
-        break;
-      case 4: // Settings
+      case 3: // Settings
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => SettingsPage(userData: widget.userData),
           ),
         );
         break;
-      case 5: // Logout
+      case 4: // Logout
         _handleLogout();
         break;
     }
@@ -624,10 +616,6 @@ class _CounselorStudentsPageState extends State<CounselorStudentsPage> {
       NavigationRailDestination(
         icon: Icon(Icons.calendar_today),
         label: Text('Appointments'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.event_note),
-        label: Text('Sessions'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.settings),

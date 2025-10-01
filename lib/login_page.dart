@@ -24,8 +24,10 @@ class _LoginPageState extends State<LoginPage> {
   final _usernameController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  String? _selectedGradeLevel;
-  final _sectionController = TextEditingController();
+  final _admissionNumberController = TextEditingController();
+  String? _selectedStatus;
+  String? _selectedProgram;
+  List<Map<String, dynamic>> _courses = [];
   bool _isLogin = true;
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -35,6 +37,33 @@ class _LoginPageState extends State<LoginPage> {
   static const Duration apiTimeout = Duration(seconds: 30);
 
   @override
+  void initState() {
+    super.initState();
+    _fetchCourses();
+  }
+
+  Future<void> _fetchCourses() async {
+    try {
+      final baseUrl = await AppConfig.apiBaseUrl;
+      final response = await http.get(Uri.parse('$baseUrl/api/courses')).timeout(apiTimeout);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _courses = List<Map<String, dynamic>>.from(data['courses']);
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to load courses';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching courses: $e';
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -42,7 +71,6 @@ class _LoginPageState extends State<LoginPage> {
     _usernameController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _sectionController.dispose();
     super.dispose();
   }
 
@@ -127,11 +155,12 @@ class _LoginPageState extends State<LoginPage> {
         'email': _emailController.text.trim(),
         'password': _passwordController.text,
         'student_id': _studentIdController.text.trim(),
+        'admission_number': _studentIdController.text.trim(),
         'role': 'student',
         'first_name': _firstNameController.text.trim(),
         'last_name': _lastNameController.text.trim(),
-        'grade_level': _selectedGradeLevel,
-        'section': _sectionController.text.trim(),
+        'status': _selectedStatus,
+        'program': _selectedProgram,
       }),
     ).timeout(apiTimeout);
 
@@ -329,13 +358,13 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Student ID Field (signup only)
+                          // Student/Admission Number Field (signup only)
                           if (!_isLogin) ...[
                             TextFormField(
                               controller: _studentIdController,
                               decoration: InputDecoration(
-                                labelText: 'Student ID',
-                                hintText: 'Enter your student ID',
+                                labelText: 'Student/Admission Number',
+                                hintText: 'Enter your student ID or admission number if new student',
                                 prefixIcon: const Icon(Icons.badge),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -345,10 +374,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter your student ID';
-                                }
-                                if (value.length < 3) {
-                                  return 'Student ID must be at least 3 characters';
+                                  return 'Please enter your student or admission number';
                                 }
                                 return null;
                               },
@@ -467,9 +493,9 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 16),
                             DropdownButtonFormField<String>(
-                              value: _selectedGradeLevel,
+                              value: _selectedStatus,
                               decoration: InputDecoration(
-                                labelText: 'Grade Level',
+                                labelText: 'Status',
                                 prefixIcon: const Icon(Icons.school),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -478,29 +504,26 @@ class _LoginPageState extends State<LoginPage> {
                                 fillColor: Colors.grey[50],
                               ),
                               items: const [
-                                DropdownMenuItem(value: '1st', child: Text('1st Year')),
-                                DropdownMenuItem(value: '2nd', child: Text('2nd Year')),
-                                DropdownMenuItem(value: '3rd', child: Text('3rd Year')),
-                                DropdownMenuItem(value: '4th', child: Text('4th Year')),
-                                DropdownMenuItem(value: '5th', child: Text('5th Year')),
+                                DropdownMenuItem(value: 'Undergraduate', child: Text('Undergraduate')),
+                                DropdownMenuItem(value: 'Graduate', child: Text('Graduate')),
                               ],
                               onChanged: (value) {
                                 setState(() {
-                                  _selectedGradeLevel = value;
+                                  _selectedStatus = value;
                                 });
                               },
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please select your grade level';
+                                  return 'Please select your status';
                                 }
                                 return null;
                               },
                             ),
                             const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _sectionController,
+                            DropdownButtonFormField<String>(
+                              value: _selectedProgram,
                               decoration: InputDecoration(
-                                labelText: 'Section',
+                                labelText: 'Program',
                                 prefixIcon: const Icon(Icons.class_),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -508,9 +531,18 @@ class _LoginPageState extends State<LoginPage> {
                                 filled: true,
                                 fillColor: Colors.grey[50],
                               ),
+                              items: _courses.where((course) => course['id'] != null && course['course_name'] != null).map((course) => DropdownMenuItem<String>(
+                                value: course['id'].toString(),
+                                child: Text(course['course_name']),
+                              )).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedProgram = value;
+                                });
+                              },
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter your section';
+                                  return 'Please select your program';
                                 }
                                 return null;
                               },

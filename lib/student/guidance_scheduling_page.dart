@@ -86,6 +86,16 @@ class _GuidanceSchedulingPageState extends State<GuidanceSchedulingPage> {
           print('DEBUG: Appointment $i: ${appointments[i]}');
         }
 
+        // Sort appointments: pending first, then approved, then others, by date descending
+        appointments.sort((a, b) {
+          int priorityA = _getAppointmentPriority(a['apt_status']);
+          int priorityB = _getAppointmentPriority(b['apt_status']);
+          if (priorityA != priorityB) return priorityA.compareTo(priorityB);
+          DateTime dateA = DateTime.parse(a['appointment_date']);
+          DateTime dateB = DateTime.parse(b['appointment_date']);
+          return dateB.compareTo(dateA); // newest first
+        });
+
         setState(() {
           _appointments = appointments;
           _isLoadingAppointments = false;
@@ -136,6 +146,12 @@ class _GuidanceSchedulingPageState extends State<GuidanceSchedulingPage> {
     }
   }
 
+  int _getAppointmentPriority(String status) {
+    if (status == 'pending') return 1;
+    if (status == 'approved') return 2;
+    return 3;
+  }
+
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
@@ -159,7 +175,7 @@ class _GuidanceSchedulingPageState extends State<GuidanceSchedulingPage> {
           'appointment_date': appointmentDate.toIso8601String(),
           'purpose': reason,
           'course': course,
-          'status': 'pending',
+          'apt_status': 'pending',
           'approval_status': 'pending',
         };
 
@@ -523,7 +539,7 @@ class _GuidanceSchedulingPageState extends State<GuidanceSchedulingPage> {
               itemBuilder: (context, index) {
                 final appointment = _appointments[index];
                 final appointmentDate = DateTime.parse(appointment['appointment_date']);
-                final status = appointment['status'];
+                final status = appointment['apt_status'] ?? 'pending';
                 final purpose = appointment['purpose'];
                 final course = appointment['course'] ?? 'N/A';
 
@@ -598,11 +614,12 @@ class _GuidanceSchedulingPageState extends State<GuidanceSchedulingPage> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _showEditAppointmentDialog(appointment),
-                          tooltip: 'Edit appointment',
-                        ),
+                        if (status != 'cancelled' && status != 'approved' && status != 'completed')
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () => _showEditAppointmentDialog(appointment),
+                            tooltip: 'Edit appointment',
+                          ),
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () => _showDeleteAppointmentDialog(appointment),
