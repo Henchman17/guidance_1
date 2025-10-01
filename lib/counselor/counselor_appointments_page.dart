@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../login_page.dart';
-import '../settings.dart';
 import 'counselor_dashboard.dart';
 import 'counselor_students_page.dart';
 import 'counselor_sessions_page.dart';
@@ -65,12 +64,37 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
   }
 
   List<Map<String, dynamic>> get filteredAppointments {
-    if (selectedFilter == 'All') {
-      return appointments;
-    }
-    return appointments.where((appointment) {
-      return appointment['apt_status'] == selectedFilter.toLowerCase();
-    }).toList();
+    List<Map<String, dynamic>> filtered = selectedFilter == 'All'
+        ? appointments
+        : appointments.where((appointment) {
+            return appointment['apt_status'] == selectedFilter.toLowerCase();
+          }).toList();
+
+    // Sort by status priority: pending (1), confirmed/scheduled (2), cancelled (3), completed (4)
+    filtered.sort((a, b) {
+      int getPriority(String status) {
+        switch (status) {
+          case 'pending':
+            return 1;
+          case 'confirmed':
+          case 'scheduled':
+            return 2;
+          case 'cancelled':
+            return 3;
+          case 'completed':
+            return 4;
+          default:
+            return 5;
+        }
+      }
+
+      int priorityA = getPriority(a['apt_status'] ?? '');
+      int priorityB = getPriority(b['apt_status'] ?? '');
+
+      return priorityA.compareTo(priorityB);
+    });
+
+    return filtered;
   }
 
   Widget _buildAppointmentCard(Map<String, dynamic> appointment) {
@@ -797,12 +821,6 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
         ),
       );
     } else if (index == 4) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => SettingsPage(userData: widget.userData),
-        ),
-      );
-    } else if (index == 5) {
       _handleLogout();
     }
   }
@@ -852,10 +870,6 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
       NavigationRailDestination(
         icon: Icon(Icons.event_note),
         label: Text('Sessions'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.settings),
-        label: Text('Settings'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.logout),

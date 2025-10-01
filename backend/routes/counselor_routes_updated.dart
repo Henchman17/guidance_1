@@ -30,13 +30,41 @@ class CounselorRoutes {
 
   Future<Response> getCounselorDashboard(Request request) async {
     try {
-      final userId = int.parse(request.url.queryParameters['user_id'] ?? '0');
-      if (!await _checkUserRole(userId, 'counselor')) {
+      final counselorId = int.parse(request.url.queryParameters['user_id'] ?? '0');
+      if (!await _checkUserRole(counselorId, 'counselor')) {
         return Response.forbidden(jsonEncode({'error': 'Counselor access required'}));
       }
 
-      // Get counselor's appointments
-      final appointments = await _database.query('''
+      // Get counselor's statistics
+      final stats = await _database.query('''
+        SELECT
+          COUNT(DISTINCT student_id) as total_students,
+          COUNT(*) as total_appointments,
+          COUNT(CASE WHEN apt_status = 'scheduled' THEN 1 END) as scheduled,
+          COUNT(CASE WHEN apt_status = 'completed' THEN 1 END) as completed
+        FROM appointments
+        WHERE counselor_id = @counselor_id
+      ''', {'counselor_id': counselorId});
+
+      // Get recent students
+      final recentStudents = await _database.query('''
+        SELECT DISTINCT
+          s.id,
+          s.first_name,
+          s.last_name,
+          s.status,
+          s.program,
+          MAX(a.appointment_date) as last_appointment_date
+        FROM users s
+        JOIN appointments a ON s.id = a.student_id
+        WHERE a.counselor_id = @counselor_id
+        GROUP BY s.id, s.first_name, s.last_name, s.status, s.program
+        ORDER BY MAX(a.appointment_date) DESC
+        LIMIT 5
+      ''', {'counselor_id': counselorId});
+
+      // Get upcoming appointments
+      final upcomingAppointments = await _database.query('''
         SELECT
           a.id,
           a.student_id,
@@ -51,27 +79,30 @@ class CounselorRoutes {
           s.program
         FROM appointments a
         JOIN users s ON a.student_id = s.id
-        WHERE a.counselor_id = @counselor_id
-        ORDER BY a.appointment_date DESC
+        WHERE a.counselor_id = @counselor_id AND a.appointment_date >= CURRENT_DATE
+        ORDER BY a.appointment_date ASC
         LIMIT 10
-      ''', {'counselor_id': userId});
-
-      // Get counselor's statistics
-      final stats = await _database.query('''
-        SELECT
-          COUNT(*) as total_appointments,
-          COUNT(CASE WHEN apt_status = 'scheduled' THEN 1 END) as scheduled,
-          COUNT(CASE WHEN apt_status = 'completed' THEN 1 END) as completed,
-          COUNT(CASE WHEN appointment_date >= CURRENT_DATE THEN 1 END) as upcoming
-        FROM appointments
-        WHERE counselor_id = @counselor_id
-      ''', {'counselor_id': userId});
+      ''', {'counselor_id': counselorId});
 
       return Response.ok(jsonEncode({
-        'appointments': appointments.map((row) => {
+        'statistics': stats.isNotEmpty ? {
+          'total_students': stats.first[0],
+          'counseling_sessions': stats.first[1],
+          'pending_requests': stats.first[2],
+          'completed_sessions': stats.first[3],
+        } : null,
+        'recent_students': recentStudents.map((row) => {
+          'id': row[0],
+          'first_name': row[1]?.toString() ?? '',
+          'last_name': row[2]?.toString() ?? '',
+          'status': row[3]?.toString() ?? '',
+          'program': row[4]?.toString() ?? '',
+          'last_appointment_date': row[5]?.toString(),
+        }).toList(),
+        'upcoming_appointments': upcomingAppointments.map((row) => {
           'id': row[0],
           'student_id': row[1],
-          'appointment_date': row[2] is DateTime ? (row[2] as DateTime).toIso8601String() : row[2].toString(),
+          'appointment_date': row[2] is DateTime ? (row[2] as DateTime).toIso8601String() : row[2]?.toString(),
           'purpose': row[3]?.toString() ?? '',
           'course': row[4]?.toString() ?? '',
           'apt_status': row[5]?.toString() ?? 'scheduled',
@@ -81,12 +112,6 @@ class CounselorRoutes {
           'status': row[9]?.toString(),
           'program': row[10]?.toString(),
         }).toList(),
-        'statistics': stats.isNotEmpty ? {
-          'total_appointments': stats.first[0],
-          'scheduled': stats.first[1],
-          'completed': stats.first[2],
-          'upcoming': stats.first[3],
-        } : null,
       }));
     } catch (e) {
       return Response.internalServerError(
@@ -574,6 +599,188 @@ class CounselorRoutes {
     } catch (e) {
       return Response.internalServerError(
         body: jsonEncode({'error': 'Failed to fetch students: $e'}),
+      );
+    }
+  }
+
+  Future<Response> getStudentProfile(Request request, String studentId) async {
+    try {
+      final counselorId = int.parse(request.url.queryParameters['counselor_id'] ?? '0');
+      if (!await _checkUserRole(counselorId, 'counselor')) {
+        return Response.forbidden(jsonEncode({'error': 'Counselor access required'}));
+      }
+
+      // Get basic student information
+      final studentResult = await _database.query('''
+        SELECT id, username, email, role, created_at,
+               student_id, first_name, last_name, status, program
+        FROM users
+        WHERE id = @student_id AND role = 'student'
+      ''', {'student_id': int.parse(studentId)});
+
+      if (studentResult.isEmpty) {
+        return Response.notFound(jsonEncode({'error': 'Student not found'}));
+      }
+
+      final student = studentResult.first;
+      final studentData = {
+        'id': student[0],
+        'username': student[1],
+        'email': student[2],
+        'role': student[3],
+        'created_at': student[4] is DateTime ? (student[4] as DateTime).toIso8601String() : student[4]?.toString(),
+        'student_id': student[5],
+        'first_name': student[6],
+        'last_name': student[7],
+        'status': student[8],
+        'program': student[9],
+      };
+
+      // Get SCRF record if exists
+      Map<String, dynamic>? scrfData;
+      try {
+        final scrfResult = await _database.query('SELECT * FROM get_scrf_record(@user_id)', {
+          'user_id': int.parse(studentId),
+        });
+
+        if (scrfResult.isNotEmpty) {
+          final row = scrfResult.first;
+          scrfData = {
+            'id': row[0],
+            'user_id': row[1],
+            'student_id': row[2],
+            'username': row[3],
+            'student_number': row[4],
+            'first_name': row[5],
+            'last_name': row[6],
+            'program_enrolled': row[7],
+            'sex': row[8],
+            'full_name': row[9],
+            'address': row[10],
+            'zipcode': row[11],
+            'age': row[12],
+            'civil_status': row[13],
+            'date_of_birth': row[14]?.toIso8601String(),
+            'place_of_birth': row[15],
+            'lrn': row[16],
+            'cellphone': row[17],
+            'email_address': row[18],
+            'father_name': row[19],
+            'father_age': row[20],
+            'father_occupation': row[21],
+            'mother_name': row[22],
+            'mother_age': row[23],
+            'mother_occupation': row[24],
+            'living_with_parents': row[25],
+            'guardian_name': row[26],
+            'guardian_relationship': row[27],
+            'siblings': row[28],
+            'educational_background': row[29],
+            'awards_received': row[30],
+            'transferee_college_name': row[31],
+            'transferee_program': row[32],
+            'physical_defect': row[33],
+            'allergies_food': row[34],
+            'allergies_medicine': row[35],
+            'exam_taken': row[36],
+            'exam_date': row[37]?.toIso8601String(),
+            'raw_score': row[38],
+            'percentile': row[39],
+            'adjectival_rating': row[40],
+            'created_at': row[41]?.toIso8601String(),
+            'updated_at': row[42]?.toIso8601String(),
+          };
+        }
+      } catch (e) {
+        // SCRF record doesn't exist, continue without it
+        scrfData = null;
+      }
+
+      // Get routine interview record if exists
+      Map<String, dynamic>? routineInterviewData;
+      try {
+        final routineResult = await _database.query('''
+          SELECT
+            ri.id,
+            ri.name,
+            ri.date,
+            ri.grade_course_year_section,
+            ri.nickname,
+            ri.ordinal_position,
+            ri.student_description,
+            ri.familial_description,
+            ri.strengths,
+            ri.weaknesses,
+            ri.achievements,
+            ri.best_work_person,
+            ri.first_choice,
+            ri.goals,
+            ri.contribution,
+            ri.talents_skills,
+            ri.home_problems,
+            ri.school_problems,
+            ri.applicant_signature,
+            ri.signature_date,
+            ri.created_at,
+            u.student_id,
+            u.first_name,
+            u.last_name,
+            u.status,
+            u.program
+          FROM routine_interviews ri
+          JOIN users u ON ri.student_id = u.id
+          WHERE u.id = @user_id
+          ORDER BY ri.created_at DESC
+          LIMIT 1
+        ''', {'user_id': int.parse(studentId)});
+
+        if (routineResult.isNotEmpty) {
+          final row = routineResult.first;
+          routineInterviewData = {
+            'id': row[0],
+            'name': row[1],
+            'date': row[2] is DateTime ? (row[2] as DateTime).toIso8601String() : row[2]?.toString(),
+            'grade_course_year_section': row[3],
+            'nickname': row[4],
+            'ordinal_position': row[5],
+            'student_description': row[6],
+            'familial_description': row[7],
+            'strengths': row[8],
+            'weaknesses': row[9],
+            'achievements': row[10],
+            'best_work_person': row[11],
+            'first_choice': row[12],
+            'goals': row[13],
+            'contribution': row[14],
+            'talents_skills': row[15],
+            'home_problems': row[16],
+            'school_problems': row[17],
+            'applicant_signature': row[18],
+            'signature_date': row[19] is DateTime ? (row[19] as DateTime).toIso8601String() : row[19]?.toString(),
+            'created_at': row[20] is DateTime ? (row[20] as DateTime).toIso8601String() : row[20]?.toString(),
+            'student_id': row[21],
+            'first_name': row[22],
+            'last_name': row[23],
+            'status': row[24],
+            'program': row[25],
+          };
+        }
+      } catch (e) {
+        // Routine interview doesn't exist, continue without it
+        routineInterviewData = null;
+      }
+
+      // Flatten the response to match frontend expectations
+      final responseData = {
+        ...studentData,
+        'scrf_data': scrfData,
+        'routine_interview': routineInterviewData,
+      };
+
+      return Response.ok(jsonEncode(responseData));
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to fetch student profile: $e'}),
       );
     }
   }

@@ -62,6 +62,7 @@ void main(List<String> args) async {
   // Counselor routes
   router.get('/api/counselor/dashboard', apiRoutes.counselorRoutes.getCounselorDashboard);
   router.get('/api/counselor/students', apiRoutes.counselorRoutes.getCounselorStudents);
+  router.get('/api/counselor/students/<studentId>/profile', apiRoutes.counselorRoutes.getStudentProfile);
   router.get('/api/counselor/appointments', apiRoutes.counselorRoutes.getCounselorAppointments);
   router.get('/api/counselor/sessions', apiRoutes.counselorRoutes.getCounselorSessions);
   router.put('/api/counselor/appointments/<id>', adminRoutes.updateCounselorAppointment);

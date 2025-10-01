@@ -439,8 +439,36 @@ class AdminRoutes {
         return Response.forbidden(jsonEncode({'error': 'Counselor access required'}));
       }
 
-      // Get counselor's appointments
-      final appointments = await _database.query('''
+      // Get counselor's statistics
+      final stats = await _database.query('''
+        SELECT
+          COUNT(DISTINCT student_id) as total_students,
+          COUNT(*) as total_appointments,
+          COUNT(CASE WHEN apt_status = 'scheduled' THEN 1 END) as scheduled,
+          COUNT(CASE WHEN apt_status = 'completed' THEN 1 END) as completed
+        FROM appointments
+        WHERE counselor_id = @counselor_id
+      ''', {'counselor_id': counselorId});
+
+      // Get recent students
+      final recentStudents = await _database.query('''
+        SELECT DISTINCT
+          s.id,
+          s.first_name,
+          s.last_name,
+          s.status,
+          s.program,
+          MAX(a.appointment_date) as last_appointment_date
+        FROM users s
+        JOIN appointments a ON s.id = a.student_id
+        WHERE a.counselor_id = @counselor_id
+        GROUP BY s.id, s.first_name, s.last_name, s.status, s.program
+        ORDER BY MAX(a.appointment_date) DESC
+        LIMIT 5
+      ''', {'counselor_id': counselorId});
+
+      // Get upcoming appointments
+      final upcomingAppointments = await _database.query('''
         SELECT
           a.id,
           a.student_id,
@@ -455,24 +483,27 @@ class AdminRoutes {
           s.program
         FROM appointments a
         JOIN users s ON a.student_id = s.id
-        WHERE a.counselor_id = @counselor_id
-        ORDER BY a.appointment_date DESC
+        WHERE a.counselor_id = @counselor_id AND a.appointment_date >= CURRENT_DATE
+        ORDER BY a.appointment_date ASC
         LIMIT 10
       ''', {'counselor_id': counselorId});
 
-      // Get counselor's statistics
-      final stats = await _database.query('''
-        SELECT
-          COUNT(*) as total_appointments,
-          COUNT(CASE WHEN apt_status = 'scheduled' THEN 1 END) as scheduled,
-          COUNT(CASE WHEN apt_status = 'completed' THEN 1 END) as completed,
-          COUNT(CASE WHEN appointment_date >= CURRENT_DATE THEN 1 END) as upcoming
-        FROM appointments
-        WHERE counselor_id = @counselor_id
-      ''', {'counselor_id': counselorId});
-
       return Response.ok(jsonEncode({
-        'appointments': appointments.map((row) => {
+        'statistics': stats.isNotEmpty ? {
+          'total_students': stats.first[0],
+          'counseling_sessions': stats.first[1],
+          'pending_requests': stats.first[2],
+          'completed_sessions': stats.first[3],
+        } : null,
+        'recent_students': recentStudents.map((row) => {
+          'id': row[0],
+          'first_name': row[1]?.toString() ?? '',
+          'last_name': row[2]?.toString() ?? '',
+          'status': row[3]?.toString() ?? '',
+          'program': row[4]?.toString() ?? '',
+          'last_appointment_date': row[5]?.toString(),
+        }).toList(),
+        'upcoming_appointments': upcomingAppointments.map((row) => {
           'id': row[0],
           'student_id': row[1],
           'appointment_date': row[2] is DateTime ? (row[2] as DateTime).toIso8601String() : row[2]?.toString(),
@@ -485,12 +516,6 @@ class AdminRoutes {
           'status': row[9]?.toString(),
           'program': row[10]?.toString(),
         }).toList(),
-        'statistics': stats.isNotEmpty ? {
-          'total_appointments': stats.first[0],
-          'scheduled': stats.first[1],
-          'completed': stats.first[2],
-          'upcoming': stats.first[3],
-        } : null,
       }));
     } catch (e) {
       return Response.internalServerError(

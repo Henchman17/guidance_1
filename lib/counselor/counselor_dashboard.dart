@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../login_page.dart';
-import '../settings.dart';
 import 'counselor_students_page.dart';
 import 'counselor_appointments_page.dart';
 
@@ -503,10 +502,6 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
         label: Text('Appointments'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.settings),
-        label: Text('Settings'),
-      ),
-      NavigationRailDestination(
         icon: Icon(Icons.logout),
         label: Text('Logout'),
       ),
@@ -524,10 +519,7 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
       case 2: // Appointments
         setState(() => _selectedIndex = 2);
         break;
-      case 3: // Settings
-        setState(() => _selectedIndex = 3);
-        break;
-      case 4: // Logout
+      case 3: // Logout
         _handleLogout();
         break;
     }
@@ -679,7 +671,7 @@ class _CounselorDashboardPageState extends State<CounselorDashboardPage> with Si
                           ? CounselorStudentsPage(userData: _currentUser)
                           : _selectedIndex == 2
                               ? CounselorAppointmentsPage(userData: _currentUser)
-                              : SettingsPage(userData: _currentUser),
+                              : Container(),
                 ),
               ],
             ),

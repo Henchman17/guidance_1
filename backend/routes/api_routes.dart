@@ -51,6 +51,7 @@ class ApiRoutes {
     // Counselor routes
     router.get('/api/counselor/dashboard', counselorRoutes.getCounselorDashboard);
     router.get('/api/counselor/students', counselorRoutes.getCounselorStudents);
+    router.get('/api/counselor/students/<studentId>/profile', counselorRoutes.getStudentProfile);
     router.get('/api/counselor/appointments', counselorRoutes.getCounselorAppointments);
     router.get('/api/counselor/sessions', counselorRoutes.getCounselorSessions);
     router.put('/api/counselor/appointments/<id>/complete', counselorRoutes.completeAppointment);
