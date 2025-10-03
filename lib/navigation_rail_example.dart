@@ -336,7 +336,7 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                               width: 260,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.green.shade700, Colors.green.shade900],
+                                  colors: [Colors.teal.shade600, Colors.teal.shade800],
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                 ),
@@ -352,25 +352,51 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                                   bottomRight: Radius.circular(16),
                                 ),
                               ),
-                              child: NavigationRail(
-                                extended: true,
-                                selectedIndex: _selectedIndex,
-                                onDestinationSelected: (int index) {
-                                  _handleNavigation(index);
-                                },
-                                labelType: NavigationRailLabelType.none,
-                                backgroundColor: Colors.transparent,
-                                selectedIconTheme: const IconThemeData(color: Colors.white, size: 28),
-                                unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 24),
-                                selectedLabelTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                unselectedLabelTextStyle: const TextStyle(color: Colors.white70),
-                                destinations: _buildNavigationDestinationsWithDividers(),
+                              child: Column(
+                                children: [
+                                  if (_currentUser?['role'] == 'admin')
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.admin_panel_settings, color: Colors.white),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Admin Panel',
+                                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: NavigationRail(
+                                      extended: true,
+                                      selectedIndex: _selectedIndex,
+                                      onDestinationSelected: (int index) {
+                                        _handleNavigation(index);
+                                      },
+                                      labelType: NavigationRailLabelType.none,
+                                      backgroundColor: Colors.transparent,
+                                      selectedIconTheme: const IconThemeData(color: Colors.white, size: 28),
+                                      unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 24),
+                                      selectedLabelTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                      unselectedLabelTextStyle: const TextStyle(color: Colors.white70),
+                                      indicatorColor: Colors.white.withOpacity(0.2),
+                                      indicatorShape: const CircleBorder(),
+                                      destinations: _buildNavigationDestinationsWithDividers(),
+                                    ),
+                                  ),
+                                ],
                               ),
                             )
                           : Container(
                               width: 72,
                               decoration: BoxDecoration(
-                                color: Colors.green.shade800,
+                                gradient: LinearGradient(
+                                  colors: [Colors.teal.shade600, Colors.teal.shade800],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.3),
@@ -394,6 +420,8 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                                 backgroundColor: Colors.transparent,
                                 selectedIconTheme: const IconThemeData(color: Colors.white, size: 28),
                                 unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 24),
+                                indicatorColor: Colors.white.withOpacity(0.2),
+                                indicatorShape: const CircleBorder(),
                                 destinations: _buildNavigationDestinationsWithDividers(),
                               ),
                             ),
@@ -768,11 +796,15 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
       ]);
     }
 
-    // Add a divider as a disabled destination (using a transparent icon and empty label)
+    // Add a divider
     destinations.add(
-      const NavigationRailDestination(
-        icon: SizedBox.shrink(),
-        label: SizedBox.shrink(),
+      NavigationRailDestination(
+        icon: Container(
+          height: 1,
+          color: Colors.white.withOpacity(0.3),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        label: const SizedBox.shrink(),
       ),
     );
 

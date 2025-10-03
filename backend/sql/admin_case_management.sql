@@ -4,16 +4,11 @@
 -- Re-admission Cases Table
 CREATE TABLE IF NOT EXISTS re_admission_cases (
     id SERIAL PRIMARY KEY,
-    student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     student_name VARCHAR(255) NOT NULL,
     student_number VARCHAR(50),
-    previous_program VARCHAR(100),
-    reason_for_leaving TEXT NOT NULL,
-    reason_for_return TEXT NOT NULL,
-    academic_standing VARCHAR(100),
-    gpa DECIMAL(3,2),
+    reason_of_absence TEXT NOT NULL,
+    notes TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, approved, rejected, under_review
-    admin_notes TEXT,
     counselor_id INTEGER REFERENCES users(id),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -67,7 +62,6 @@ CREATE TABLE IF NOT EXISTS exit_interviews (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_re_admission_cases_student_id ON re_admission_cases(student_id);
 CREATE INDEX IF NOT EXISTS idx_re_admission_cases_status ON re_admission_cases(status);
 CREATE INDEX IF NOT EXISTS idx_re_admission_cases_created_at ON re_admission_cases(created_at);
 
@@ -111,9 +105,9 @@ SELECT
 FROM exit_interviews;
 
 -- Insert sample data for testing
-INSERT INTO re_admission_cases (student_id, student_name, student_number, previous_program, reason_for_leaving, reason_for_return, academic_standing, gpa, status) VALUES
-(1, 'John Doe', '2021001', 'BSIT', 'Financial difficulties', 'Resolved financial issues', 'Good Standing', 3.2, 'pending'),
-(2, 'Jane Smith', '2021002', 'BSBA', 'Health issues', 'Health improved', 'Good Standing', 3.5, 'approved')
+INSERT INTO re_admission_cases (student_name, student_number, reason_of_absence, notes, status) VALUES
+('John Doe', '2021001', 'Financial difficulties', 'Resolved financial issues', 'pending'),
+('Jane Smith', '2021002', 'Health issues', 'Health improved', 'approved')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO discipline_cases (student_id, student_name, student_number, incident_date, incident_description, severity, status) VALUES

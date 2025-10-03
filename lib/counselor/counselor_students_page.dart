@@ -126,10 +126,6 @@ class _CounselorStudentsPageState extends State<CounselorStudentsPage> {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () => _showStudentOptions(student),
-                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -137,7 +133,7 @@ class _CounselorStudentsPageState extends State<CounselorStudentsPage> {
               children: [
                 Expanded(
                   child: _buildInfoChip(
-                    'Grade ${student['grade_level']}',
+                    'Status ${student['status']}',
                     Icons.school,
                     Colors.green,
                   ),
@@ -145,7 +141,7 @@ class _CounselorStudentsPageState extends State<CounselorStudentsPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _buildInfoChip(
-                    'Section ${student['section']}',
+                    'Course ${student['program']}',
                     Icons.class_,
                     Colors.orange,
                   ),
@@ -213,62 +209,6 @@ class _CounselorStudentsPageState extends State<CounselorStudentsPage> {
     );
   }
 
-  void _showStudentOptions(Map<String, dynamic> student) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${student['first_name']} ${student['last_name']}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('View Profile'),
-              onTap: () {
-                Navigator.pop(context);
-                _viewStudentProfile(student);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Schedule Appointment'),
-              onTap: () {
-                Navigator.pop(context);
-                _scheduleAppointment(student);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text('View Session History'),
-              onTap: () {
-                Navigator.pop(context);
-                _viewSessionHistory(student);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.message),
-              title: const Text('Send Message'),
-              onTap: () {
-                Navigator.pop(context);
-                _sendMessage(student);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Future<void> _viewStudentProfile(Map<String, dynamic> student) async {
     final studentId = student['user_id'] ?? student['id'];

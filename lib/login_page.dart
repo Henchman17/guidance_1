@@ -134,9 +134,9 @@ class _LoginPageState extends State<LoginPage> {
         final error = jsonDecode(response.body);
         throw Exception(error['error'] ?? 'Login failed. Please try again.');
       }
-    } on TimeoutException catch (_) {
+    } on TimeoutException catch (e) {
       setState(() {
-        _errorMessage = 'Connection timed out. Please check your internet and try again.';
+        _errorMessage = e.message ?? 'Connection timed out. Please check your internet and try again.';
       });
     } catch (e) {
       setState(() {
@@ -504,8 +504,9 @@ class _LoginPageState extends State<LoginPage> {
                                 fillColor: Colors.grey[50],
                               ),
                               items: const [
-                                DropdownMenuItem(value: 'Undergraduate', child: Text('Undergraduate')),
-                                DropdownMenuItem(value: 'Graduate', child: Text('Graduate')),
+                                DropdownMenuItem(value: 'New Student', child: Text('New Student')),
+                                DropdownMenuItem(value: 'Old Student', child: Text('Old Student')),
+                                DropdownMenuItem(value: 'Current Student', child: Text('Current Student')),
                               ],
                               onChanged: (value) {
                                 setState(() {

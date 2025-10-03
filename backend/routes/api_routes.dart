@@ -74,6 +74,7 @@ class ApiRoutes {
     router.get('/api/admin/analytics', adminRoutes.getAdminAnalytics);
     router.get('/api/admin/case-summary', adminRoutes.getCaseSummary);
     router.get('/api/admin/re-admission-cases', adminRoutes.getReAdmissionCases);
+    router.post('/api/admin/re-admission-cases', adminRoutes.createReAdmissionCase);
     router.put('/api/admin/re-admission-cases/<id>', adminRoutes.updateReAdmissionCase);
     router.get('/api/admin/discipline-cases', adminRoutes.getDisciplineCases);
     router.put('/api/admin/discipline-cases/<id>', adminRoutes.updateDisciplineCase);

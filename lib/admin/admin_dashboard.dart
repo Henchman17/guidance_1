@@ -26,6 +26,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
   String errorMessage = '';
   int _selectedIndex = 0;
   Map<String, dynamic>? _currentUser;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  bool _sidebarCollapsed = false;
 
   static const String apiBaseUrl = 'http://localhost:8080';
 
@@ -185,6 +188,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
         side: BorderSide(color: color.withOpacity(0.3), width: 1),
       ),
       child: Container(
+        height: 300, // Added fixed height to make cards taller
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
@@ -364,63 +368,84 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
     final userStats = dashboardData?['user_statistics'] ?? {'total_users': '156', 'new_users_today': '0'};
     final appointmentStats = dashboardData?['appointment_statistics'] ?? {'total_appointments': '89', 'scheduled': '45', 'completed': '32', 'cancelled': '12'};
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFE3F2FD), Color(0xFFFFFFFF)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+    return Column(
+      children: [
+        // Title bar always above
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Admin Dashboard',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ),
         ),
-      ),
-      child: RefreshIndicator(
-        onRefresh: fetchDashboardData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              // Metrics Row
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+        Expanded(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFE3F2FD), Color(0xFFFFFFFF)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: RefreshIndicator(
+              onRefresh: fetchDashboardData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: _buildMetricCard(
-                        'Total Users',
-                        userStats['total_users']?.toString() ?? '156',
-                        Icons.people,
-                        Colors.blue,
+                    // Metrics Row
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetricCard(
+                              'Total Users',
+                              userStats['total_users']?.toString() ?? '156',
+                              Icons.people,
+                              Colors.blue,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildMetricCard(
+                              'New Today',
+                              userStats['new_users_today']?.toString() ?? '0',
+                              Icons.trending_up,
+                              Colors.orange,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildMetricCard(
+                              'Total Appointments',
+                              appointmentStats['total_appointments']?.toString() ?? '89',
+                              Icons.calendar_today,
+                              Colors.purple,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Expanded(
-                      child: _buildMetricCard(
-                        'New Today',
-                        userStats['new_users_today']?.toString() ?? '0',
-                        Icons.trending_up,
-                        Colors.orange,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildMetricCard(
-                        'Total Appointments',
-                        appointmentStats['total_appointments']?.toString() ?? '89',
-                        Icons.calendar_today,
-                        Colors.purple,
-                      ),
-                    ),
+
+
+
+                    // Recent Activity
+                    _buildRecentActivity(),
+
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
-
-
-
-              // Recent Activity
-              _buildRecentActivity(),
-
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 

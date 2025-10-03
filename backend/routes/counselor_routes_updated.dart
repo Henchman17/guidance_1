@@ -441,7 +441,7 @@ class CounselorRoutes {
 
       // Check if the appointment exists and belongs to this counselor
       final appointmentResult = await _database.query(
-        'SELECT id, counselor_id, status FROM appointments WHERE id = @id',
+        'SELECT id, counselor_id, apt_status FROM appointments WHERE id = @id',
         {'id': int.parse(appointmentId)},
       );
 
@@ -521,7 +521,7 @@ class CounselorRoutes {
 
       // Check if the appointment exists, belongs to this counselor, and is cancelled
       final appointmentResult = await _database.query(
-        'SELECT id, counselor_id, status FROM appointments WHERE id = @id',
+        'SELECT id, counselor_id, apt_status FROM appointments WHERE id = @id',
         {'id': int.parse(appointmentId)},
       );
 
@@ -904,7 +904,7 @@ class CounselorRoutes {
           s.program
         FROM appointments a
         JOIN users s ON a.student_id = s.id
-        WHERE a.counselor_id = @counselor_id AND a.status IN ('completed', 'in_progress')
+        WHERE a.counselor_id = @counselor_id AND a.apt_status IN ('completed', 'in_progress')
         ORDER BY a.appointment_date DESC
       ''', {'counselor_id': int.parse(userId)});
 
@@ -1076,7 +1076,7 @@ class CounselorRoutes {
             approved_by = @counselor_id,
             approved_at = NOW(),
             rejection_reason = NULL,
-            status = 'scheduled'
+            apt_status = 'scheduled'
         WHERE id = @id
       ''', {
         'counselor_id': counselorId,
@@ -1151,7 +1151,7 @@ class CounselorRoutes {
             approved_by = @counselor_id,
             approved_at = NOW(),
             rejection_reason = @rejection_reason,
-            status = 'cancelled'
+            apt_status = 'cancelled'
         WHERE id = @id
       ''', {
         'counselor_id': counselorId,

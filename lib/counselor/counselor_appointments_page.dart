@@ -313,17 +313,6 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
                     ),
                   ),
                 ] else if (status == 'confirmed') ...[
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _startSession(appointment),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Start Session'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
@@ -587,14 +576,7 @@ class _CounselorAppointmentsPageState extends State<CounselorAppointmentsPage> {
       ),
     );
   }
-
-  void _startSession(Map<String, dynamic> appointment) {
-    // TODO: Navigate to session page
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Starting session with ${appointment['student_name']}')),
-    );
-  }
-
+  
   void _editAppointment(Map<String, dynamic> appointment) {
     final TextEditingController dateController = TextEditingController(text: appointment['date'] ?? '');
     final TextEditingController timeController = TextEditingController(text: appointment['time'] ?? '');

@@ -346,6 +346,26 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     );
   }
 
+  Widget _buildRoleFilterChip(String label, Color color) {
+    return ChoiceChip(
+      label: Text(label, style: TextStyle(color: selectedRoleFilter == label ? Colors.white : color)),
+      selected: selectedRoleFilter == label,
+      selectedColor: color,
+      backgroundColor: color.withOpacity(0.15),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() {
+            selectedRoleFilter = label;
+            _filterUsers();
+          });
+        }
+      },
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    );
+  }
+
   void showCreateUserDialog() {
     final formKey = GlobalKey<FormState>();
     final usernameController = TextEditingController();
@@ -555,51 +575,100 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         children: [
           // Search and Filter Bar
           Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.grey[50],
-            child: Column(
-              children: [
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search users by name or email...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  onChanged: (value) {
-                    searchQuery = value;
-                    _filterUsers();
-                  },
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Text(
-                      'Filter by role:',
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(width: 12),
-                    ...['All', 'Admin', 'Counselor', 'Student'].map((role) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(role),
-                          selected: selectedRoleFilter == role,
-                          onSelected: (selected) {
-                            setState(() {
-                              selectedRoleFilter = role;
-                              _filterUsers();
-                            });
-                          },
-                        ),
-                      );
-                    }),
-                  ],
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade50, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.shade100.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
               ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade200,
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search users by username, email, or student ID...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: Icon(Icons.search, color: Colors.blue.shade600),
+                        suffixIcon: searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(Icons.clear, color: Colors.grey.shade500),
+                                onPressed: () {
+                                  setState(() {
+                                    searchQuery = '';
+                                    _filterUsers();
+                                  });
+                                },
+                              )
+                            : null,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                      onChanged: (value) {
+                        searchQuery = value;
+                        _filterUsers();
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Icon(Icons.filter_list, color: Colors.blue.shade600, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Filter by Role',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildRoleFilterChip('All', Colors.grey.shade600),
+                        const SizedBox(width: 8),
+                        _buildRoleFilterChip('Admin', Colors.red.shade600),
+                        const SizedBox(width: 8),
+                        _buildRoleFilterChip('Counselor', Colors.blue.shade600),
+                        const SizedBox(width: 8),
+                        _buildRoleFilterChip('Student', Colors.green.shade600),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 

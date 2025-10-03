@@ -649,21 +649,17 @@ class AdminRoutes {
       final result = await _database.query('''
         SELECT
           rac.id,
-          rac.student_id,
           rac.student_name,
           rac.student_number,
-          rac.previous_program,
-          rac.reason_for_leaving,
-          rac.reason_for_return,
-          rac.academic_standing,
-          rac.gpa,
+          rac.reason_of_absence,
+          rac.notes,
           rac.status,
-          rac.admin_notes,
           rac.counselor_id,
           rac.created_at,
           rac.updated_at,
           rac.reviewed_at,
           rac.reviewed_by,
+          rac.date,
           u.username as counselor_name,
           ru.username as reviewed_by_name
         FROM re_admission_cases rac
@@ -674,29 +670,83 @@ class AdminRoutes {
 
       final cases = result.map((row) => {
         'id': row[0],
-        'student_id': row[1],
-        'student_name': row[2],
-        'student_number': row[3],
-        'previous_program': row[4],
-        'reason_for_leaving': row[5],
-        'reason_for_return': row[6],
-        'academic_standing': row[7],
-        'gpa': row[8],
-        'status': row[9],
-        'admin_notes': row[10],
-        'counselor_id': row[11],
-        'created_at': row[12]?.toIso8601String(),
-        'updated_at': row[13]?.toIso8601String(),
-        'reviewed_at': row[14]?.toIso8601String(),
-        'reviewed_by': row[15],
-        'counselor_name': row[16],
-        'reviewed_by_name': row[17],
+        'student_name': row[1],
+        'student_number': row[2],
+        'reason_of_absence': row[3],
+        'notes': row[4],
+        'status': row[5],
+        'counselor_id': row[6],
+        'created_at': row[7]?.toIso8601String(),
+        'updated_at': row[8]?.toIso8601String(),
+        'reviewed_at': row[9]?.toIso8601String(),
+        'reviewed_by': row[10],
+        'date': row[11]?.toIso8601String(),
+        'counselor_name': row[12],
+        'reviewed_by_name': row[13],
       }).toList();
 
       return Response.ok(jsonEncode({'cases': cases}));
     } catch (e) {
       return Response.internalServerError(
         body: jsonEncode({'error': 'Failed to fetch re-admission cases: $e'}),
+      );
+    }
+  }
+
+  Future<Response> createReAdmissionCase(Request request) async {
+    try {
+      final body = await request.readAsString();
+      final data = jsonDecode(body);
+      final adminId = data['admin_id'];
+
+      if (!await _checkUserRole(adminId, 'admin')) {
+        return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
+      }
+
+      // Validation
+      if (data['student_name'] == null || data['student_name'].toString().isEmpty) {
+        return Response(400, body: jsonEncode({'error': 'Student name is required'}));
+      }
+      if (data['student_number'] == null || data['student_number'].toString().isEmpty) {
+        return Response(400, body: jsonEncode({'error': 'Student number is required'}));
+      }
+      if (data['reason_of_absence'] == null || data['reason_of_absence'].toString().isEmpty) {
+        return Response(400, body: jsonEncode({'error': 'Reason of absence is required'}));
+      }
+
+      final insertData = {
+        'student_name': data['student_name'],
+        'student_number': data['student_number'],
+        'reason_of_absence': data['reason_of_absence'],
+        'notes': data['notes'],
+        'status': data['status'] ?? 'pending',
+        'counselor_id': data['counselor_id'],
+        'created_at': data['created_at'] != null ? DateTime.parse(data['created_at']) : null,
+        'date': data['date'] != null ? DateTime.parse(data['date']) : null,
+      };
+
+      final result = await _database.query('''
+        INSERT INTO re_admission_cases (student_name, student_number, reason_of_absence, notes, status, counselor_id, created_at, date)
+        VALUES (@student_name, @student_number, @reason_of_absence, @notes, @status, @counselor_id, COALESCE(@created_at, NOW()), @date)
+        RETURNING id, student_name, student_number, reason_of_absence, notes, status, counselor_id, created_at, date
+      ''', insertData);
+
+      final row = result.first;
+
+      return Response(201, body: jsonEncode({
+        'id': row[0],
+        'student_name': row[1],
+        'student_number': row[2],
+        'reason_of_absence': row[3],
+        'notes': row[4],
+        'status': row[5],
+        'counselor_id': row[6],
+        'created_at': row[7]?.toIso8601String(),
+        'date': row[8]?.toIso8601String(),
+      }));
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to create re-admission case: $e'}),
       );
     }
   }
@@ -718,9 +768,9 @@ class AdminRoutes {
         updateFields.add('status = @status');
         params['status'] = data['status'];
       }
-      if (data['admin_notes'] != null) {
-        updateFields.add('admin_notes = @admin_notes');
-        params['admin_notes'] = data['admin_notes'];
+      if (data['notes'] != null) {
+        updateFields.add('notes = @notes');
+        params['notes'] = data['notes'];
       }
       if (data['counselor_id'] != null) {
         updateFields.add('counselor_id = @counselor_id');

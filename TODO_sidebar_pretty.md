@@ -1,0 +1,5 @@
+- [ ] Update the sidebar gradient to a simpler, cleaner look
+- [ ] Add a simple header ("Admin Panel") when the sidebar is extended
+- [ ] Add circular backgrounds for selected icons
+- [ ] Improve spacing and padding in the sidebar
+- [ ] Enhance the divider between sections
