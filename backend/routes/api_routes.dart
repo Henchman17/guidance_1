@@ -48,6 +48,10 @@ class ApiRoutes {
     router.get('/api/routine-interviews/<userId>', getRoutineInterview);
     router.put('/api/routine-interviews/<userId>', updateRoutineInterview);
 
+    // Credential Change Request routes
+    router.post('/api/credential-change-requests', createCredentialChangeRequest);
+    router.get('/api/credential-change-requests/<userId>', getUserCredentialChangeRequests);
+
     // Counselor routes
     router.get('/api/counselor/dashboard', counselorRoutes.getCounselorDashboard);
     router.get('/api/counselor/students', counselorRoutes.getCounselorStudents);
@@ -77,9 +81,220 @@ class ApiRoutes {
     router.post('/api/admin/re-admission-cases', adminRoutes.createReAdmissionCase);
     router.put('/api/admin/re-admission-cases/<id>', adminRoutes.updateReAdmissionCase);
     router.get('/api/admin/discipline-cases', adminRoutes.getDisciplineCases);
+    router.post('/api/admin/discipline-cases', adminRoutes.createDisciplineCase);
     router.put('/api/admin/discipline-cases/<id>', adminRoutes.updateDisciplineCase);
     router.get('/api/admin/exit-interviews', adminRoutes.getExitInterviews);
     router.put('/api/admin/exit-interviews/<id>', adminRoutes.updateExitInterview);
+    router.get('/api/admin/credential-change-requests', adminRoutes.getCredentialChangeRequests);
+    router.put('/api/admin/credential-change-requests/<id>', adminRoutes.updateCredentialChangeRequest);
+    router.put('/api/admin/credential-change-requests/<id>/approve', adminRoutes.approveCredentialChangeRequest);
+
+
+
+    // SCRF routes
+    router.post('/api/scrf', (Request request) async {
+      try {
+        final body = await request.readAsString();
+        final data = jsonDecode(body);
+
+        // Validate required fields
+        if (data['user_id'] == null || data['student_id'] == null) {
+          return Response.badRequest(
+            body: jsonEncode({'error': 'user_id and student_id are required'}),
+          );
+        }
+
+        final result = await _database.execute('''
+          CALL insert_scrf_record(
+            @user_id, @student_id, @program_enrolled, @sex, @full_name, @address, @city, @barangay, @zipcode, @age,
+            @civil_status, @date_of_birth, @place_of_birth, @lrn, @cellphone, @email_address,
+            @father_name, @father_age, @father_occupation, @mother_name, @mother_age, @mother_occupation,
+            @living_with_parents, @guardian_name, @guardian_relationship, @siblings,
+            @educational_background, @awards_received, @transferee_college_name, @transferee_program,
+            @physical_defect, @allergies_food, @allergies_medicine, @exam_taken, @exam_date,
+            @raw_score, @percentile, @adjectival_rating, @created_by
+          )
+        ''', {
+          'user_id': data['user_id'],
+          'student_id': data['student_id'],
+          'program_enrolled': data['program_enrolled'],
+          'sex': data['sex'],
+          'full_name': data['full_name'],
+          'address': data['address'],
+          'city': data['city'],
+          'barangay': data['barangay'],
+          'zipcode': data['zipcode'],
+          'age': data['age'],
+          'civil_status': data['civil_status'],
+          'date_of_birth': data['date_of_birth'],
+          'place_of_birth': data['place_of_birth'],
+          'lrn': data['lrn'],
+          'cellphone': data['cellphone'],
+          'email_address': data['email_address'],
+          'father_name': data['father_name'],
+          'father_age': data['father_age'],
+          'father_occupation': data['father_occupation'],
+          'mother_name': data['mother_name'],
+          'mother_age': data['mother_age'],
+          'mother_occupation': data['mother_occupation'],
+          'living_with_parents': data['living_with_parents'],
+          'guardian_name': data['guardian_name'],
+          'guardian_relationship': data['guardian_relationship'],
+          'siblings': jsonEncode(data['siblings']),
+          'educational_background': jsonEncode(data['educational_background']),
+          'awards_received': data['awards_received'],
+          'transferee_college_name': data['transferee_college_name'],
+          'transferee_program': data['transferee_program'],
+          'physical_defect': data['physical_defect'],
+          'allergies_food': data['allergies_food'],
+          'allergies_medicine': data['allergies_medicine'],
+          'exam_taken': data['exam_taken'],
+          'exam_date': data['exam_date'],
+          'raw_score': data['raw_score'],
+          'percentile': data['percentile'],
+          'adjectival_rating': data['adjectival_rating'],
+          'created_by': data['user_id'],
+        });
+
+        return Response.ok(jsonEncode({'message': 'SCRF record inserted successfully'}));
+      } catch (e) {
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Failed to insert SCRF record: $e'}),
+        );
+      }
+    });
+
+    router.get('/api/scrf/<user_id>', (Request request, String userId) async {
+      try {
+        final result = await _database.query('SELECT * FROM get_scrf_record(@user_id)', {
+          'user_id': int.parse(userId),
+        });
+
+        if (result.isEmpty) {
+          return Response.notFound(jsonEncode({'error': 'SCRF record not found'}));
+        }
+
+        final row = result.first;
+        // Map the row to a JSON object (adjust indices as per your function)
+        final scrfRecord = {
+          'id': row[0],
+          'user_id': row[1],
+          'student_id': row[2],
+          'username': row[3],
+          'student_number': row[4],
+          'first_name': row[5],
+          'last_name': row[6],
+          'program_enrolled': row[7],
+          'sex': row[8],
+          'full_name': row[9],
+          'address': row[10],
+          'city': row[11],
+          'barangay': row[12],
+          'zipcode': row[13],
+          'age': row[14],
+          'civil_status': row[15],
+          'date_of_birth': row[16]?.toIso8601String(),
+          'place_of_birth': row[17],
+          'lrn': row[18],
+          'cellphone': row[19],
+          'email_address': row[20],
+          'father_name': row[21],
+          'father_age': row[22],
+          'father_occupation': row[23],
+          'mother_name': row[24],
+          'mother_age': row[25],
+          'mother_occupation': row[26],
+          'living_with_parents': row[27],
+          'guardian_name': row[28],
+          'guardian_relationship': row[29],
+          'siblings': row[30],
+          'educational_background': row[31],
+          'awards_received': row[32],
+          'transferee_college_name': row[33],
+          'transferee_program': row[34],
+          'physical_defect': row[35],
+          'allergies_food': row[36],
+          'allergies_medicine': row[37],
+          'exam_taken': row[38],
+          'exam_date': row[39]?.toIso8601String(),
+          'raw_score': row[40],
+          'percentile': row[41],
+          'adjectival_rating': row[42],
+          'created_at': row[43]?.toIso8601String(),
+          'updated_at': row[44]?.toIso8601String(),
+        };
+
+        return Response.ok(jsonEncode(scrfRecord));
+      } catch (e) {
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Failed to fetch SCRF record: $e'}),
+        );
+      }
+    });
+
+    router.put('/api/scrf/<user_id>', (Request request, String userId) async {
+      try {
+        final body = await request.readAsString();
+        final data = jsonDecode(body);
+
+        final result = await _database.execute('''
+          CALL update_scrf_record(
+            @user_id, @program_enrolled, @sex, @full_name, @address, @city, @barangay, @zipcode, @age,
+            @civil_status, @date_of_birth, @place_of_birth, @lrn, @cellphone, @email_address,
+            @father_name, @father_age, @father_occupation, @mother_name, @mother_age, @mother_occupation,
+            @living_with_parents, @guardian_name, @guardian_relationship, @siblings,
+            @educational_background, @awards_received, @transferee_college_name, @transferee_program,
+            @physical_defect, @allergies_food, @allergies_medicine, @exam_taken, @exam_date,
+            @raw_score, @percentile, @adjectival_rating, @updated_by
+          )
+        ''', {
+          'user_id': int.parse(userId),
+          'program_enrolled': data['program_enrolled'],
+          'sex': data['sex'],
+          'full_name': data['full_name'],
+          'address': data['address'],
+          'city': data['city'],
+          'barangay': data['barangay'],
+          'zipcode': data['zipcode'],
+          'age': data['age'],
+          'civil_status': data['civil_status'],
+          'date_of_birth': data['date_of_birth'],
+          'place_of_birth': data['place_of_birth'],
+          'lrn': data['lrn'],
+          'cellphone': data['cellphone'],
+          'email_address': data['email_address'],
+          'father_name': data['father_name'],
+          'father_age': data['father_age'],
+          'father_occupation': data['father_occupation'],
+          'mother_name': data['mother_name'],
+          'mother_age': data['mother_age'],
+          'mother_occupation': data['mother_occupation'],
+          'living_with_parents': data['living_with_parents'],
+          'guardian_name': data['guardian_name'],
+          'guardian_relationship': data['guardian_relationship'],
+          'siblings': jsonEncode(data['siblings']),
+          'educational_background': jsonEncode(data['educational_background']),
+          'awards_received': data['awards_received'],
+          'transferee_college_name': data['transferee_college_name'],
+          'transferee_program': data['transferee_program'],
+          'physical_defect': data['physical_defect'],
+          'allergies_food': data['allergies_food'],
+          'allergies_medicine': data['allergies_medicine'],
+          'exam_taken': data['exam_taken'],
+          'exam_date': data['exam_date'],
+          'raw_score': data['raw_score'],
+          'percentile': data['percentile'],
+          'adjectival_rating': data['adjectival_rating'],
+          'updated_by': data['user_id'],
+        });
+
+        return Response.ok(jsonEncode({'message': 'SCRF record updated successfully'}));
+      } catch (e) {
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Failed to update SCRF record: $e'}),
+        );
+      }
+    });
   }
 
   Future<Response> healthCheck(Request request) async {
@@ -1138,6 +1353,139 @@ class ApiRoutes {
     } catch (e) {
       return Response.internalServerError(
         body: jsonEncode({'error': 'Failed to update routine interview: $e'}),
+      );
+    }
+  }
+
+  // Credential Change Request endpoints
+  Future<Response> createCredentialChangeRequest(Request request) async {
+    try {
+      final body = await request.readAsString();
+      final data = jsonDecode(body);
+
+      // Validate required fields
+      if (data['user_id'] == null || data['request_type'] == null || data['new_value'] == null) {
+        return Response.badRequest(
+          body: jsonEncode({'error': 'Missing required fields: user_id, request_type, new_value'}),
+        );
+      }
+
+      // Validate request_type
+      final validTypes = ['email', 'password', 'username', 'student_id'];
+      if (!validTypes.contains(data['request_type'])) {
+        return Response.badRequest(
+          body: jsonEncode({'error': 'Invalid request_type. Must be one of: ${validTypes.join(', ')}'}),
+        );
+      }
+
+      // Check if user exists
+      final userResult = await _database.query(
+        'SELECT id, role FROM users WHERE id = @user_id',
+        {'user_id': data['user_id']},
+      );
+
+      if (userResult.isEmpty) {
+        return Response.badRequest(
+          body: jsonEncode({'error': 'User not found'}),
+        );
+      }
+
+      // Check if there's already a pending request for this user and type
+      final existingRequest = await _database.query(
+        'SELECT id FROM credential_change_requests WHERE user_id = @user_id AND request_type = @request_type AND status = @status',
+        {
+          'user_id': data['user_id'],
+          'request_type': data['request_type'],
+          'status': 'pending',
+        },
+      );
+
+      if (existingRequest.isNotEmpty) {
+        return Response.badRequest(
+          body: jsonEncode({'error': 'You already have a pending request for this credential type'}),
+        );
+      }
+
+      // Insert the request
+      final result = await _database.execute('''
+        INSERT INTO credential_change_requests (
+          user_id, request_type, current_value, new_value, reason, status, admin_notes
+        ) VALUES (
+          @user_id, @request_type, @current_value, @new_value, @reason, @status, @admin_notes
+        )
+        RETURNING id
+      ''', {
+        'user_id': data['user_id'],
+        'request_type': data['request_type'],
+        'current_value': data['current_value'] ?? '',
+        'new_value': data['new_value'],
+        'reason': data['reason'] ?? '',
+        'status': 'pending',
+        'admin_notes': '',
+      });
+
+      return Response.ok(jsonEncode({
+        'message': 'Credential change request submitted successfully',
+        'request_id': result,
+      }));
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to create credential change request: $e'}),
+      );
+    }
+  }
+
+  Future<Response> getUserCredentialChangeRequests(Request request, String userId) async {
+    try {
+      final result = await _database.query('''
+        SELECT
+          ccr.id,
+          ccr.user_id,
+          ccr.request_type,
+          ccr.current_value,
+          ccr.new_value,
+          ccr.reason,
+          ccr.status,
+          ccr.admin_notes,
+          ccr.created_at,
+          ccr.updated_at,
+          u.username,
+          u.email,
+          u.first_name,
+          u.last_name,
+          u.student_id
+        FROM credential_change_requests ccr
+        JOIN users u ON ccr.user_id = u.id
+        WHERE ccr.user_id = @user_id
+        ORDER BY ccr.created_at DESC
+      ''', {'user_id': int.parse(userId)});
+
+      final requests = result.map((row) => {
+        'id': row[0],
+        'user_id': row[1],
+        'request_type': row[2],
+        'current_value': row[3],
+        'new_value': row[4],
+        'reason': row[5],
+        'status': row[6],
+        'admin_notes': row[7],
+        'created_at': row[8] is DateTime ? (row[8] as DateTime).toIso8601String() : row[8]?.toString(),
+        'updated_at': row[9] is DateTime ? (row[9] as DateTime).toIso8601String() : row[9]?.toString(),
+        'username': row[10],
+        'email': row[11],
+        'first_name': row[12],
+        'last_name': row[13],
+        'student_id': row[14],
+      }).toList();
+
+      return Response.ok(jsonEncode({
+        'success': true,
+        'count': requests.length,
+        'requests': requests,
+      }));
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to fetch credential change requests: $e'}),
       );
     }
   }

@@ -573,7 +573,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       ),
       body: Column(
         children: [
-          // Search and Filter Bar
+          // Search and Add section
           Container(
             margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -639,63 +639,77 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   ),
                   const SizedBox(height: 16),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Icon(Icons.filter_list, color: Colors.blue.shade600, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Filter by Role',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.blue.shade600, Colors.blue.shade800],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.add, color: Colors.white),
+                          label: const Text('Add User', style: TextStyle(color: Colors.white)),
+                          onPressed: showCreateUserDialog,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildRoleFilterChip('All', Colors.grey.shade600),
-                        const SizedBox(width: 8),
-                        _buildRoleFilterChip('Admin', Colors.red.shade600),
-                        const SizedBox(width: 8),
-                        _buildRoleFilterChip('Counselor', Colors.blue.shade600),
-                        const SizedBox(width: 8),
-                        _buildRoleFilterChip('Student', Colors.green.shade600),
-                      ],
-                    ),
                   ),
                 ],
               ),
             ),
           ),
 
-          // User Count
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Filter buttons
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${filteredUsers.length} users found',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey,
-                  ),
+                Row(
+                  children: [
+                    Icon(Icons.filter_list, color: Colors.blue.shade600, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Filter by Role',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
                 ),
-                FloatingActionButton.extended(
-                  onPressed: showCreateUserDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add User'),
-                  backgroundColor: const Color(0xFF1E88E5),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildRoleFilterChip('All', Colors.grey.shade600),
+                      const SizedBox(width: 8),
+                      _buildRoleFilterChip('Admin', Colors.red.shade600),
+                      const SizedBox(width: 8),
+                      _buildRoleFilterChip('Counselor', Colors.blue.shade600),
+                      const SizedBox(width: 8),
+                      _buildRoleFilterChip('Student', Colors.green.shade600),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
 
-          // Users List
+          // Users list
           Expanded(
             child: filteredUsers.isEmpty
                 ? const Center(
@@ -704,13 +718,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       children: [
                         Icon(Icons.people_outline, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
-                        Text(
-                          'No users found',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey,
-                          ),
-                        ),
+                        Text('No users found'),
                       ],
                     ),
                   )

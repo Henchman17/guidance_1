@@ -139,11 +139,46 @@ class _AdminAppointmentsPageState extends State<AdminAppointmentsPage> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Appointment Management'),
+          backgroundColor: const Color(0xFF1E88E5),
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading appointments...'),
+            ],
+          ),
+        ),
+      );
     }
 
     if (errorMessage.isNotEmpty) {
-      return Center(child: Text(errorMessage));
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Appointment Management'),
+          backgroundColor: const Color(0xFF1E88E5),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(errorMessage, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: fetchAppointments,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return Scaffold(
@@ -154,6 +189,7 @@ class _AdminAppointmentsPageState extends State<AdminAppointmentsPage> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF1E88E5),
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -162,187 +198,128 @@ class _AdminAppointmentsPageState extends State<AdminAppointmentsPage> {
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFE3F2FD), Color(0xFFFFFFFF)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Column(
-          children: [
-            if (showFilters)
-              Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+      body: Column(
+        children: [
+          // Search and Add section
+          Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade50, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.shade100.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.filter_list, color: Color(0xFF1E88E5)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Filters',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E88E5),
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: clearFilters,
-                          icon: const Icon(Icons.clear_all),
-                          label: const Text('Clear All'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade200,
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    // Status Dropdown
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          labelText: 'Appointment Status',
-                          labelStyle: const TextStyle(color: Color(0xFF1E88E5)),
-                          prefixIcon: const Icon(Icons.assignment, color: Color(0xFF1E88E5)),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search appointments by student name, counselor, or purpose...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
-                        value: selectedStatus,
-                        items: <String>[
-                          '',
-                          'Scheduled',
-                          'Completed',
-                          'Cancelled',
-                          'Overdue',
-                        ].map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value.isEmpty ? null : value,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  value.isEmpty ? Icons.all_inclusive :
-                                  value == 'Scheduled' ? Icons.schedule :
-                                  value == 'Completed' ? Icons.check_circle :
-                                  value == 'Cancelled' ? Icons.cancel :
-                                  Icons.warning,
-                                  color: getStatusColor(value.isEmpty ? 'all' : value),
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(value.isEmpty ? 'All Statuses' : value),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            selectedStatus = value;
-                          });
-                          applyFilters();
-                        },
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: Icon(Icons.search, color: Colors.blue.shade600),
+                        suffixIcon: IconButton(
+                          icon: Icon(Icons.clear, color: Colors.grey.shade500),
+                          onPressed: () {
+                            // Add search functionality if needed
+                          },
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
+                      onChanged: (value) {
+                        // Add search functionality if needed
+                      },
                     ),
-                    const SizedBox(height: 16),
-                    // Date Range Picker
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _selectDateRange(context),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.date_range, color: Color(0xFF1E88E5)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        startDate != null && endDate != null
-                                            ? '${startDate!.toLocal().toString().split(' ')[0]} - ${endDate!.toLocal().toString().split(' ')[0]}'
-                                            : 'Select Date Range',
-                                        style: TextStyle(
-                                          color: startDate != null ? Colors.black : Colors.grey[600],
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (startDate != null || endDate != null)
-                            IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.red),
-                              onPressed: () {
-                                setState(() {
-                                  startDate = null;
-                                  endDate = null;
-                                });
-                                applyFilters();
-                              },
-                              tooltip: 'Clear Date Range',
-                            ),
-                        ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Filter buttons
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.filter_list, color: Colors.blue.shade600, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Filter by Status',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
                       ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildStatusFilterChip('All', null, Colors.grey.shade600),
+                      const SizedBox(width: 8),
+                      _buildStatusFilterChip('Scheduled', 'Scheduled', Colors.blue.shade600),
+                      const SizedBox(width: 8),
+                      _buildStatusFilterChip('Completed', 'Completed', Colors.green.shade600),
+                      const SizedBox(width: 8),
+                      _buildStatusFilterChip('Cancelled', 'Cancelled', Colors.red.shade600),
+                      const SizedBox(width: 8),
+                      _buildStatusFilterChip('Overdue', 'Overdue', Colors.orange.shade600),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Appointments list
           Expanded(
             child: filteredAppointments.isEmpty
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.calendar_today_outlined,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No appointments found',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Try adjusting your filters or refresh the page',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text('No appointments found'),
+                      ],
+                    ),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 16),
@@ -464,8 +441,28 @@ class _AdminAppointmentsPageState extends State<AdminAppointmentsPage> {
                     },
                   ),
                 ),
-          ],),
+        ],
       ),
+    );
+  }
+
+  Widget _buildStatusFilterChip(String label, String? value, Color color) {
+    return ChoiceChip(
+      label: Text(label, style: TextStyle(color: selectedStatus == value ? Colors.white : color)),
+      selected: selectedStatus == value,
+      selectedColor: color,
+      backgroundColor: color.withOpacity(0.15),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() {
+            selectedStatus = value;
+          });
+          applyFilters();
+        }
+      },
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }
 

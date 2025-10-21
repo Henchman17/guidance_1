@@ -17,6 +17,8 @@ class _ScrfPageState extends State<ScrfPage> {
   List<String> _siblingLabels = [];
   Map<String, dynamic>? _existingData;
   bool _isLoading = true;
+  bool _livingWithParents = true;
+  bool _hasPhysicalDefect = false;
 
   // Controllers for all fields
   final _programEnrolledController = TextEditingController();
@@ -40,7 +42,6 @@ class _ScrfPageState extends State<ScrfPage> {
 
   final _fullNameController = TextEditingController();
   final _addressController = TextEditingController();
-  final _zipcodeController = TextEditingController();
   final _ageController = TextEditingController();
   final _civilStatusController = TextEditingController();
   final _dateOfBirthController = TextEditingController();
@@ -61,6 +62,7 @@ class _ScrfPageState extends State<ScrfPage> {
   final _transfereeCollegeController = TextEditingController();
   final _transfereeProgramController = TextEditingController();
   final _physicalDefectController = TextEditingController();
+  final _natureOfDefectController = TextEditingController();
   final _allergiesFoodController = TextEditingController();
   final _allergiesMedicineController = TextEditingController();
   final _examTakenController = TextEditingController();
@@ -136,7 +138,6 @@ class _ScrfPageState extends State<ScrfPage> {
       _selectedProgram = _existingData!['program_enrolled'];
     }
     _addressController.text = _existingData!['address'] ?? '';
-    _zipcodeController.text = _existingData!['zipcode'] ?? '';
     _ageController.text = _existingData!['age']?.toString() ?? '';
     _civilStatusController.text = _existingData!['civil_status'] ?? '';
     _dateOfBirthController.text = _existingData!['date_of_birth'] ?? '';
@@ -150,13 +151,14 @@ class _ScrfPageState extends State<ScrfPage> {
     _motherNameController.text = _existingData!['mother_name'] ?? '';
     _motherAgeController.text = _existingData!['mother_age']?.toString() ?? '';
     _motherOccupationController.text = _existingData!['mother_occupation'] ?? '';
-    _livingWithParentsController.text = _existingData!['living_with_parents'] == true ? 'YES' : 'NO';
+    _livingWithParents = _existingData!['living_with_parents'] ?? true;
     _guardianNameController.text = _existingData!['guardian_name'] ?? '';
     _guardianRelationshipController.text = _existingData!['guardian_relationship'] ?? '';
     _awardsReceivedController.text = _existingData!['awards_received'] ?? '';
     _transfereeCollegeController.text = _existingData!['transferee_college_name'] ?? '';
     _transfereeProgramController.text = _existingData!['transferee_program'] ?? '';
-    _physicalDefectController.text = _existingData!['physical_defect'] ?? '';
+    _hasPhysicalDefect = _existingData!['physical_defect']?.toLowerCase() == 'yes';
+    _natureOfDefectController.text = _existingData!['physical_defect'] ?? '';
     _allergiesFoodController.text = _existingData!['allergies_food'] ?? '';
     _allergiesMedicineController.text = _existingData!['allergies_medicine'] ?? '';
     _examTakenController.text = _existingData!['exam_taken'] ?? '';
@@ -255,7 +257,6 @@ class _ScrfPageState extends State<ScrfPage> {
       'sex': _selectedSex,
       'full_name': _fullNameController.text,
       'address': _addressController.text,
-      'zipcode': _zipcodeController.text,
       'age': int.tryParse(_ageController.text),
       'civil_status': _civilStatusController.text,
       'date_of_birth': _dateOfBirthController.text,
@@ -269,7 +270,7 @@ class _ScrfPageState extends State<ScrfPage> {
       'mother_name': _motherNameController.text,
       'mother_age': int.tryParse(_motherAgeController.text),
       'mother_occupation': _motherOccupationController.text,
-      'living_with_parents': _livingWithParentsController.text.toUpperCase() == 'YES',
+      'living_with_parents': _livingWithParents,
       'guardian_name': _guardianNameController.text,
       'guardian_relationship': _guardianRelationshipController.text,
       'siblings': siblings,
@@ -277,7 +278,7 @@ class _ScrfPageState extends State<ScrfPage> {
       'awards_received': _awardsReceivedController.text,
       'transferee_college_name': _transfereeCollegeController.text,
       'transferee_program': _transfereeProgramController.text,
-      'physical_defect': _physicalDefectController.text,
+      'physical_defect': _hasPhysicalDefect ? 'YES' : 'NO',
       'allergies_food': _allergiesFoodController.text,
       'allergies_medicine': _allergiesMedicineController.text,
       'exam_taken': _examTakenController.text,
@@ -372,6 +373,52 @@ class _ScrfPageState extends State<ScrfPage> {
     );
   }
 
+  Widget _buildYesNoRadio(String title, bool groupValue, Function(bool) onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.green,
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: ListTile(
+                title: const Text('Yes'),
+                leading: Radio<bool>(
+                  value: true,
+                  groupValue: groupValue,
+                  onChanged: (bool? value) {
+                    if (value != null) onChanged(value);
+                  },
+                  activeColor: Colors.green,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListTile(
+                title: const Text('No'),
+                leading: Radio<bool>(
+                  value: false,
+                  groupValue: groupValue,
+                  onChanged: (bool? value) {
+                    if (value != null) onChanged(value);
+                  },
+                  activeColor: Colors.green,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -390,7 +437,7 @@ class _ScrfPageState extends State<ScrfPage> {
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-
+ 
     return Scaffold(
        appBar: AppBar(
         title: const Text(
@@ -462,7 +509,6 @@ class _ScrfPageState extends State<ScrfPage> {
               _buildSectionTitle('A. PERSONAL AND FAMILY INFORMATION'),
               _buildTextField('NAME (LAST NAME, FIRST NAME, MIDDLE NAME)', _fullNameController),
               _buildTextField('ADDRESS', _addressController),
-              _buildTextField('ZIPCODE', _zipcodeController),
               _buildTextField('AGE', _ageController),
               _buildTextField('CIVIL STATUS', _civilStatusController),
               _buildTextField('DATE OF BIRTH', _dateOfBirthController),
@@ -478,9 +524,15 @@ class _ScrfPageState extends State<ScrfPage> {
               _buildTextField('Mother\'s Name', _motherNameController),
               _buildTextField('Mother\'s Age', _motherAgeController),
               _buildTextField('Mother\'s Occupation', _motherOccupationController),
-              _buildTextField('Are you living with your Parents? YES / NO', _livingWithParentsController),
-              _buildTextField('If NO, who is your Guardian here? Name', _guardianNameController),
-              _buildTextField('RELATIONSHIP', _guardianRelationshipController),
+              _buildYesNoRadio('Are you living with your Parents?', _livingWithParents, (value) {
+                setState(() {
+                  _livingWithParents = value;
+                });
+              }),
+              if (!_livingWithParents) ...[
+                _buildTextField('If NO, who is your Guardian here? Name', _guardianNameController),
+                _buildTextField('RELATIONSHIP', _guardianRelationshipController),
+              ],
               _buildSectionTitle('NAME OF BROTHERS/SISTERS, CIVIL STATUS, OCCUPATION'),
               Column(
                 children: [
@@ -558,8 +610,14 @@ class _ScrfPageState extends State<ScrfPage> {
               _buildTextField('College if any - NAME OF SCHOOL', _transfereeCollegeController),
               _buildTextField('College if any - PROGRAM', _transfereeProgramController),
               _buildSectionTitle('C. HEALTH RECORD'),
-              _buildTextField('Do you have any physical defect or disability which may give you inconveniences or interfere with your studies? YES / NO', _physicalDefectController),
-              _buildTextField('If YES, kindly state the nature of the defect', _allergiesFoodController),
+              _buildYesNoRadio('Do you have any physical defect or disability which may give you inconveniences or interfere with your studies?', _hasPhysicalDefect, (value) {
+                setState(() {
+                  _hasPhysicalDefect = value;
+                });
+              }),
+              if (_hasPhysicalDefect) ...[
+                _buildTextField('If YES, kindly state the nature of the defect', _natureOfDefectController),
+              ],
               _buildTextField('Kindly state your allergies in food/s and medicine/s', _allergiesMedicineController),
               _buildTextField('FOOD/S', _allergiesFoodController),
               _buildTextField('MEDICINE/S', _allergiesMedicineController),

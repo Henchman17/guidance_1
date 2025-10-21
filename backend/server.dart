@@ -30,6 +30,11 @@ void main(List<String> args) async {
     final apiRoutes = ApiRoutes(database);
     final adminRoutes = AdminRoutes(database);
 
+    final scrfRoutes = ScrfRoutes(database);
+
+    // Mount additional routers
+    router.mount('/api/scrf', scrfRoutes.router);
+
     // API routes
     router.get('/health', apiRoutes.healthCheck);
     router.post('/api/users/login', apiRoutes.login);
@@ -51,6 +56,10 @@ void main(List<String> args) async {
     // JOIN examples for signup process
     router.get('/api/examples/join-signup', apiRoutes.getSignupJoinExamples);
 
+    // Credential Change Request routes
+    router.post('/api/credential-change-requests', apiRoutes.createCredentialChangeRequest);
+    router.get('/api/credential-change-requests/<userId>', apiRoutes.getUserCredentialChangeRequests);
+
   // Admin routes
   router.get('/api/admin/dashboard', adminRoutes.getAdminDashboard);
   router.get('/api/admin/users', adminRoutes.getAdminUsers);
@@ -64,9 +73,11 @@ void main(List<String> args) async {
   router.post('/api/admin/re-admission-cases', adminRoutes.createReAdmissionCase);
   router.put('/api/admin/re-admission-cases/<id>', adminRoutes.updateReAdmissionCase);
   router.get('/api/admin/discipline-cases', adminRoutes.getDisciplineCases);
+  router.post('/api/admin/discipline-cases', adminRoutes.createDisciplineCase);
   router.put('/api/admin/discipline-cases/<id>', adminRoutes.updateDisciplineCase);
   router.get('/api/admin/exit-interviews', adminRoutes.getExitInterviews);
   router.put('/api/admin/exit-interviews/<id>', adminRoutes.updateExitInterview);
+  router.get('/api/admin/forms', adminRoutes.getAdminForms);
 
     // Counselor routes
     router.get('/api/counselor/dashboard', apiRoutes.counselorRoutes.getCounselorDashboard);

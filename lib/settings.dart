@@ -30,6 +30,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Map<String, dynamic>? _studentData;
   bool _isLoading = false;
   int _selectedIndex = 4;
+  List<Map<String, dynamic>> _credentialRequests = [];
 
   // Database API endpoints
   static const String _baseUrl = 'http://10.0.2.2:8080/api'; // Adjust port as needed - 10.0.2.2 for Android emulator
@@ -158,8 +159,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(
+          'Settings',
+          style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.green,
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
@@ -169,17 +173,10 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             const Text(
               'Profile Settings',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             _buildProfileSection(),
-            const SizedBox(height: 32),
-            const Text(
-              'Account Credentials',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildCredentialsSection(),
             const SizedBox(height: 32),
             const Text(
               'Preferences',
@@ -194,6 +191,13 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 16),
             _buildNotificationsSection(),
+            const SizedBox(height: 32),
+            const Text(
+              'Credential Change Requests',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _buildCredentialRequestsSection(),
             const SizedBox(height: 32),
             const Text(
               'Privacy & Security',
@@ -330,12 +334,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     const Icon(Icons.grade, color: Colors.grey),
                     const SizedBox(width: 8),
                     const Text(
-                      'Grade Level:',
+                      'Status:',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      _studentData!['grade_level'] ?? 'N/A',
+                      _studentData!['status'] ?? 'N/A',
                       style: const TextStyle(color: Colors.black87),
                     ),
                   ],
@@ -353,12 +357,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     const Icon(Icons.class_, color: Colors.grey),
                     const SizedBox(width: 8),
                     const Text(
-                      'Section:',
+                      'Program:',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      _studentData!['section'] ?? 'N/A',
+                      _studentData!['program'] ?? 'N/A',
                       style: const TextStyle(color: Colors.black87),
                     ),
                   ],
@@ -385,76 +389,6 @@ class _SettingsPageState extends State<SettingsPage> {
               secondary: Icon(
                 _darkMode ? Icons.dark_mode : Icons.light_mode,
                 color: _darkMode ? Colors.white : Colors.grey[700],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCredentialsSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.person, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Username:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _nameController.text.isNotEmpty ? _nameController.text : 'N/A',
-                      style: const TextStyle(color: Colors.black87),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.lock, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Password:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    '••••••••',
-                    style: TextStyle(color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                onPressed: () {
-                  // Navigate to change password screen or show dialog
-                },
-                child: const Text('Change Password'),
               ),
             ),
           ],
@@ -495,28 +429,63 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildPrivacySection() {
+  Widget _buildCredentialRequestsSection() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             ListTile(
-              leading: const Icon(Icons.lock),
-              title: const Text('Change Password'),
+              leading: const Icon(Icons.person),
+              title: const Text('Request Username Change'),
+              subtitle: const Text('Submit a request to change your username'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // Navigate to change password screen
-              },
+              onTap: () => _showCredentialChangeDialog('username'),
             ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.email),
+              title: const Text('Request Email Change'),
+              subtitle: const Text('Submit a request to change your email address'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showCredentialChangeDialog('email'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.lock),
+              title: const Text('Request Password Change'),
+              subtitle: const Text('Submit a request to change your password'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showCredentialChangeDialog('password'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.badge),
+              title: const Text('Request Student ID Change'),
+              subtitle: const Text('Submit a request to change your student ID'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showCredentialChangeDialog('student_id'),
+            ),
+            const Divider(),
             ListTile(
               leading: const Icon(Icons.history),
-              title: const Text('Activity History'),
+              title: const Text('View Pending Requests'),
+              subtitle: const Text('Check status of your credential change requests'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // Navigate to activity history
-              },
+              onTap: () => _showPendingRequestsDialog(),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrivacySection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
             ListTile(
               leading: const Icon(Icons.privacy_tip),
               title: const Text('Privacy Policy'),
@@ -699,8 +668,8 @@ class _SettingsPageState extends State<SettingsPage> {
         final studentUpdates = {
           'first_name': _studentData!['first_name'],
           'last_name': _studentData!['last_name'],
-          'grade_level': _studentData!['grade_level'],
-          'section': _studentData!['section'],
+          'status': _studentData!['status'],
+          'program': _studentData!['program'],
         };
 
         success &= await _updateStudentData(userId, studentUpdates);
@@ -814,6 +783,201 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (e) {
       print('Error getting database stats: $e');
       return {};
+    }
+  }
+
+  /// Show dialog for credential change request
+  void _showCredentialChangeDialog(String credentialType) {
+    final TextEditingController controller = TextEditingController();
+    String title = '';
+    String label = '';
+    String hint = '';
+
+    switch (credentialType) {
+      case 'username':
+        title = 'Request Username Change';
+        label = 'New Username';
+        hint = 'Enter your desired username';
+        break;
+      case 'email':
+        title = 'Request Email Change';
+        label = 'New Email Address';
+        hint = 'Enter your new email address';
+        break;
+      case 'password':
+        title = 'Request Password Change';
+        label = 'New Password';
+        hint = 'Enter your new password';
+        break;
+      case 'student_id':
+        title = 'Request Student ID Change';
+        label = 'New Student ID';
+        hint = 'Enter your new student ID';
+        break;
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: label,
+                  hintText: hint,
+                ),
+                obscureText: credentialType == 'password',
+                keyboardType: credentialType == 'email' ? TextInputType.emailAddress : TextInputType.text,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Your request will be reviewed by an administrator. You will be notified once it is processed.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (controller.text.isNotEmpty) {
+                  await _submitCredentialChangeRequest(credentialType, controller.text);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Submit Request'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Show dialog for pending credential change requests
+  void _showPendingRequestsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Pending Credential Change Requests'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _fetchCredentialRequests(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return const Text('Error loading requests');
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Text('No pending requests');
+                } else {
+                  final requests = snapshot.data!;
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: requests.length,
+                    itemBuilder: (context, index) {
+                      final request = requests[index];
+                      return ListTile(
+                        title: Text('${request['request_type']} Change'),
+                        subtitle: Text('Status: ${request['status']}'),
+                        trailing: Text(request['created_at'] ?? ''),
+                      );
+                    },
+                  );
+                }
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Submit credential change request to API
+  Future<void> _submitCredentialChangeRequest(String credentialType, String newValue) async {
+    if (_currentUser == null || _currentUser!['id'] == null) return;
+
+    try {
+      // Get current value based on credential type
+      String currentValue = '';
+      switch (credentialType) {
+        case 'username':
+          currentValue = _currentUser!['username'] ?? '';
+          break;
+        case 'email':
+          currentValue = _currentUser!['email'] ?? '';
+          break;
+        case 'student_id':
+          currentValue = _currentUser!['student_id'] ?? '';
+          break;
+        case 'password':
+          // For password changes, we don't send the current password for security
+          currentValue = '';
+          break;
+      }
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/credential-change-requests'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': _currentUser!['id'],
+          'request_type': credentialType,
+          'current_value': currentValue,
+          'new_value': newValue,
+          'reason': 'User requested change via app',
+          'status': 'pending',
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Credential change request submitted successfully')),
+        );
+      } else {
+        print('Failed to submit request. Status: ${response.statusCode}, Body: ${response.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to submit request. Please try again.')),
+        );
+      }
+    } catch (e) {
+      print('Error submitting credential change request: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error submitting request. Please check your connection.')),
+      );
+    }
+  }
+
+  /// Fetch credential change requests for current user
+  Future<List<Map<String, dynamic>>> _fetchCredentialRequests() async {
+    if (_currentUser == null || _currentUser!['id'] == null) return [];
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/credential-change-requests/user/${_currentUser!['id']}'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['requests'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching credential requests: $e');
+      return [];
     }
   }
 

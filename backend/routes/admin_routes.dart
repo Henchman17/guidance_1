@@ -558,7 +558,7 @@ class AdminRoutes {
         'first_name': row[4],
         'last_name': row[5],
         'status': row[6],
-        'programS': row[7],
+        'program': row[7],
         'total_appointments': row[8],
         'last_appointment': row[9]?.toString(),
       }).toList();
@@ -720,9 +720,9 @@ class AdminRoutes {
         'reason_of_absence': data['reason_of_absence'],
         'notes': data['notes'],
         'status': data['status'] ?? 'pending',
-        'counselor_id': data['counselor_id'],
+        'counselor_id': data['counselor_id'] ?? data['admin_id'], // Accept admin_id as counselor_id for admin-created cases
         'created_at': data['created_at'] != null ? DateTime.parse(data['created_at']) : null,
-        'date': data['date'] != null ? DateTime.parse(data['date']) : null,
+        'date': data['date'] != null && data['date'].toString().isNotEmpty ? DateTime.parse(data['date'].toString()) : null,
       };
 
       final result = await _database.query('''
@@ -805,7 +805,6 @@ class AdminRoutes {
       final result = await _database.query('''
         SELECT
           dc.id,
-          dc.student_id,
           dc.student_name,
           dc.student_number,
           dc.incident_date,
@@ -817,6 +816,9 @@ class AdminRoutes {
           dc.status,
           dc.admin_notes,
           dc.counselor_id,
+          dc.grade_level,
+          dc.program,
+          dc.section,
           dc.created_at,
           dc.updated_at,
           dc.resolved_at,
@@ -831,30 +833,119 @@ class AdminRoutes {
 
       final cases = result.map((row) => {
         'id': row[0],
-        'student_id': row[1],
-        'student_name': row[2],
-        'student_number': row[3],
-        'incident_date': row[4]?.toIso8601String(),
-        'incident_description': row[5],
-        'incident_location': row[6],
-        'witnesses': row[7],
-        'action_taken': row[8],
-        'severity': row[9],
-        'status': row[10],
-        'admin_notes': row[11],
-        'counselor_id': row[12],
-        'created_at': row[13]?.toIso8601String(),
-        'updated_at': row[14]?.toIso8601String(),
-        'resolved_at': row[15]?.toIso8601String(),
-        'resolved_by': row[16],
-        'counselor_name': row[17],
-        'resolved_by_name': row[18],
+        'student_name': row[1],
+        'student_number': row[2],
+        'incident_date': row[3]?.toIso8601String(),
+        'incident_description': row[4],
+        'incident_location': row[5],
+        'witnesses': row[6],
+        'action_taken': row[7],
+        'severity': row[8],
+        'status': row[9],
+        'admin_notes': row[10],
+        'counselor_id': row[11],
+        'grade_level': row[12],
+        'program': row[13],
+        'section': row[14],
+        'created_at': row[15]?.toIso8601String(),
+        'updated_at': row[16]?.toIso8601String(),
+        'resolved_at': row[17]?.toIso8601String(),
+        'resolved_by': row[18],
+        'counselor_name': row[19],
+        'resolved_by_name': row[20],
       }).toList();
 
       return Response.ok(jsonEncode({'cases': cases}));
     } catch (e) {
       return Response.internalServerError(
         body: jsonEncode({'error': 'Failed to fetch discipline cases: $e'}),
+      );
+    }
+  }
+
+  Future<Response> createDisciplineCase(Request request) async {
+    try {
+      final body = await request.readAsString();
+      final data = jsonDecode(body);
+      final adminId = data['admin_id'];
+
+      if (!await _checkUserRole(adminId, 'admin')) {
+        return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
+      }
+
+      // Validation
+      if (data['student_name'] == null || data['student_name'].toString().isEmpty) {
+        return Response(400, body: jsonEncode({'error': 'Student name is required'}));
+      }
+      if (data['student_number'] == null || data['student_number'].toString().isEmpty) {
+        return Response(400, body: jsonEncode({'error': 'Student number is required'}));
+      }
+      if (data['incident_date'] == null || data['incident_date'].toString().isEmpty) {
+        return Response(400, body: jsonEncode({'error': 'Incident date is required'}));
+      }
+      // Validate incident date format
+      try {
+        DateTime.parse(data['incident_date']);
+      } catch (e) {
+        return Response(400, body: jsonEncode({'error': 'Invalid incident date format. Use YYYY-MM-DD format'}));
+      }
+      if (data['incident_description'] == null || data['incident_description'].toString().isEmpty) {
+        return Response(400, body: jsonEncode({'error': 'Incident description is required'}));
+      }
+      if (data['severity'] == null || data['severity'].toString().isEmpty) {
+        return Response(400, body: jsonEncode({'error': 'Severity is required'}));
+      }
+      // Validate severity
+      if (!['light_offenses', 'less_grave_offenses', 'grave_offenses'].contains(data['severity'])) {
+        return Response(400, body: jsonEncode({'error': 'Invalid severity value. Must be one of: light_offenses, less_grave_offenses, grave_offenses'}));
+      }
+      // Validate status if provided
+      if (data['status'] != null && !['open', 'under_investigation', 'resolved', 'closed'].contains(data['status'])) {
+        return Response(400, body: jsonEncode({'error': 'Invalid status value. Must be one of: open, under_investigation, resolved, closed'}));
+      }
+
+      final insertData = {
+        'student_name': data['student_name'],
+        'student_number': data['student_number'],
+        'incident_date': DateTime.parse(data['incident_date']),
+        'incident_description': data['incident_description'],
+        'incident_location': data['incident_location'],
+        'witnesses': data['witnesses'],
+        'severity': data['severity'],
+        'status': data['status'] ?? 'open',
+        'counselor_id': data['counselor_id'] ?? adminId,
+        'grade_level': data['grade_level'],
+        'program': data['program'],
+        'section': data['section'],
+      };
+
+      final result = await _database.query('''
+        INSERT INTO discipline_cases (student_name, student_number, incident_date, incident_description, incident_location, witnesses, severity, status, counselor_id, grade_level, program, section)
+        VALUES (@student_name, @student_number, @incident_date, @incident_description, @incident_location, @witnesses, @severity, @status, @counselor_id, @grade_level, @program, @section)
+        RETURNING id, student_name, student_number, incident_date, incident_description, incident_location, witnesses, severity, status, counselor_id, grade_level, program, section, created_at
+      ''', insertData);
+
+      final row = result.first;
+
+      return Response(201, body: jsonEncode({
+        'id': row[0],
+        'student_name': row[1],
+        'student_number': row[2],
+        'incident_date': row[3]?.toIso8601String(),
+        'incident_description': row[4],
+        'incident_location': row[5],
+        'witnesses': row[6],
+        'severity': row[7],
+        'status': row[8],
+        'counselor_id': row[9],
+        'grade_level': row[10],
+        'program': row[11],
+        'section': row[12],
+        'created_at': row[13]?.toIso8601String(),
+      }));
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to create discipline case: $e'}),
       );
     }
   }
@@ -872,6 +963,46 @@ class AdminRoutes {
       final updateFields = <String>[];
       final params = <String, dynamic>{'id': int.parse(id)};
 
+      if (data['student_name'] != null) {
+        updateFields.add('student_name = @student_name');
+        params['student_name'] = data['student_name'];
+      }
+      if (data['student_number'] != null) {
+        updateFields.add('student_number = @student_number');
+        params['student_number'] = data['student_number'];
+      }
+      if (data['grade_level'] != null) {
+        updateFields.add('grade_level = @grade_level');
+        params['grade_level'] = data['grade_level'];
+      }
+      if (data['program'] != null) {
+        updateFields.add('program = @program');
+        params['program'] = data['program'];
+      }
+      if (data['section'] != null) {
+        updateFields.add('section = @section');
+        params['section'] = data['section'];
+      }
+      if (data['incident_date'] != null) {
+        updateFields.add('incident_date = @incident_date');
+        params['incident_date'] = DateTime.parse(data['incident_date']);
+      }
+      if (data['severity'] != null) {
+        updateFields.add('severity = @severity');
+        params['severity'] = data['severity'];
+      }
+      if (data['incident_location'] != null) {
+        updateFields.add('incident_location = @incident_location');
+        params['incident_location'] = data['incident_location'];
+      }
+      if (data['incident_description'] != null) {
+        updateFields.add('incident_description = @incident_description');
+        params['incident_description'] = data['incident_description'];
+      }
+      if (data['witnesses'] != null) {
+        updateFields.add('witnesses = @witnesses');
+        params['witnesses'] = data['witnesses'];
+      }
       if (data['status'] != null) {
         updateFields.add('status = @status');
         params['status'] = data['status'];
@@ -890,6 +1021,8 @@ class AdminRoutes {
       }
 
       if (updateFields.isNotEmpty) {
+        updateFields.add('updated_at = NOW()');
+
         if (data['status'] == 'resolved' || data['status'] == 'closed') {
           updateFields.add('resolved_at = NOW()');
           updateFields.add('resolved_by = @resolved_by');
@@ -1102,6 +1235,277 @@ class AdminRoutes {
     } catch (e) {
       return Response.internalServerError(
         body: jsonEncode({'error': 'Failed to fetch case summary: $e'}),
+      );
+    }
+  }
+
+  // ================= CREDENTIAL CHANGE REQUESTS ENDPOINTS =================
+
+  Future<Response> getCredentialChangeRequests(Request request) async {
+    try {
+      final adminId = int.parse(request.url.queryParameters['admin_id'] ?? '0');
+      if (!await _checkUserRole(adminId, 'admin')) {
+        return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
+      }
+
+      final result = await _database.query('''
+        SELECT
+          ccr.id,
+          ccr.user_id,
+          ccr.request_type,
+          ccr.current_value,
+          ccr.new_value,
+          ccr.reason,
+          ccr.status,
+          ccr.admin_notes,
+          ccr.created_at,
+          ccr.reviewed_at,
+          ccr.reviewed_by,
+          u.username,
+          u.email,
+          u.first_name,
+          u.last_name,
+          ru.username as reviewed_by_name
+        FROM credential_change_requests ccr
+        JOIN users u ON ccr.user_id = u.id
+        LEFT JOIN users ru ON ccr.reviewed_by = ru.id
+        ORDER BY ccr.created_at DESC
+      ''');
+
+      final requests = result.map((row) => {
+        'id': row[0],
+        'user_id': row[1],
+        'request_type': row[2],
+        'current_value': row[3],
+        'new_value': row[4],
+        'reason': row[5],
+        'status': row[6],
+        'admin_notes': row[7],
+        'created_at': row[8]?.toIso8601String(),
+        'reviewed_at': row[9]?.toIso8601String(),
+        'reviewed_by': row[10],
+        'username': row[11],
+        'email': row[12],
+        'first_name': row[13],
+        'last_name': row[14],
+        'reviewed_by_name': row[15],
+      }).toList();
+
+      return Response.ok(jsonEncode({'requests': requests}));
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to fetch credential change requests: $e'}),
+      );
+    }
+  }
+
+  Future<Response> updateCredentialChangeRequest(Request request, String id) async {
+    try {
+      final body = await request.readAsString();
+      final data = jsonDecode(body);
+      final adminId = data['admin_id'];
+
+      if (!await _checkUserRole(adminId, 'admin')) {
+        return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
+      }
+
+      final updateFields = <String>[];
+      final params = <String, dynamic>{'id': int.parse(id)};
+
+      if (data['status'] != null) {
+        updateFields.add('status = @status');
+        params['status'] = data['status'];
+      }
+      if (data['admin_notes'] != null) {
+        updateFields.add('admin_notes = @admin_notes');
+        params['admin_notes'] = data['admin_notes'];
+      }
+
+      if (updateFields.isNotEmpty) {
+        if (data['status'] == 'approved' || data['status'] == 'rejected') {
+          updateFields.add('reviewed_at = NOW()');
+          updateFields.add('reviewed_by = @reviewed_by');
+          params['reviewed_by'] = adminId;
+        }
+
+        final updateQuery = 'UPDATE credential_change_requests SET ${updateFields.join(', ')} WHERE id = @id';
+        await _database.execute(updateQuery, params);
+      }
+
+      return Response.ok(jsonEncode({'message': 'Credential change request updated successfully'}));
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to update credential change request: $e'}),
+      );
+    }
+  }
+
+  Future<Response> approveCredentialChangeRequest(Request request, String id) async {
+    try {
+      final body = await request.readAsString();
+      final data = jsonDecode(body);
+      final adminId = data['admin_id'];
+
+      if (!await _checkUserRole(adminId, 'admin')) {
+        return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
+      }
+
+      // Get the request details
+      final requestResult = await _database.query(
+        'SELECT user_id, request_type, new_value FROM credential_change_requests WHERE id = @id',
+        {'id': int.parse(id)},
+      );
+
+      if (requestResult.isEmpty) {
+        return Response(404, body: jsonEncode({'error': 'Request not found'}));
+      }
+
+      final row = requestResult.first;
+      final userId = row[0];
+      final requestType = row[1];
+      final newValue = row[2];
+
+      // Update the user's credential based on request type
+      String updateQuery;
+      Map<String, dynamic> updateParams;
+
+      switch (requestType) {
+        case 'email':
+          updateQuery = 'UPDATE users SET email = @new_value WHERE id = @user_id';
+          updateParams = {'new_value': newValue, 'user_id': userId};
+          break;
+        case 'username':
+          updateQuery = 'UPDATE users SET username = @new_value WHERE id = @user_id';
+          updateParams = {'new_value': newValue, 'user_id': userId};
+          break;
+        case 'password':
+          updateQuery = 'UPDATE users SET password = @new_value WHERE id = @user_id';
+          updateParams = {'new_value': newValue, 'user_id': userId};
+          break;
+        default:
+          return Response(400, body: jsonEncode({'error': 'Invalid request type'}));
+      }
+
+      await _database.execute(updateQuery, updateParams);
+
+      // Update the request status
+      await _database.execute(
+        'UPDATE credential_change_requests SET status = @status, reviewed_at = NOW(), reviewed_by = @reviewed_by WHERE id = @id',
+        {'status': 'approved', 'reviewed_by': adminId, 'id': int.parse(id)},
+      );
+
+      return Response.ok(jsonEncode({'message': 'Credential change request approved and applied successfully'}));
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to approve credential change request: $e'}),
+      );
+    }
+  }
+
+  // ================= FORMS MANAGEMENT ENDPOINTS =================
+
+  Future<Response> getAdminForms(Request request) async {
+    try {
+      final adminId = int.parse(request.url.queryParameters['admin_id'] ?? '0');
+      if (!await _checkUserRole(adminId, 'admin')) {
+        return Response.forbidden(jsonEncode({'error': 'Admin access required'}));
+      }
+
+      // Get SCRF forms
+      final scrfResult = await _database.query('''
+        SELECT
+          'scrf' as form_type,
+          s.id as form_id,
+          s.user_id,
+          s.student_id,
+          CONCAT(u.first_name, ' ', u.last_name) as student_name,
+          u.student_id as student_number,
+          s.program_enrolled,
+          s.created_at as submitted_at,
+          s.updated_at as reviewed_at,
+          'completed' as status,
+          u.first_name,
+          u.last_name,
+          u.status,
+          u.program
+        FROM student_cumulative_records s
+        JOIN users u ON s.user_id = u.id
+        ORDER BY s.created_at DESC
+      ''');
+
+      // Get Routine Interview forms
+      final riResult = await _database.query('''
+        SELECT
+          'routine_interview' as form_type,
+          ri.id as form_id,
+          ri.student_id as user_id,
+          u.student_id,
+          CONCAT(u.first_name, ' ', u.last_name) as student_name,
+          u.student_id as student_number,
+          ri.grade_course_year_section as program_enrolled,
+          ri.created_at as submitted_at,
+          ri.updated_at as reviewed_at,
+          CASE
+            WHEN ri.applicant_signature IS NOT NULL AND ri.applicant_signature != '' THEN 'completed'
+            ELSE 'pending'
+          END as status,
+          u.first_name,
+          u.last_name,
+          u.status,
+          u.program
+        FROM routine_interviews ri
+        JOIN users u ON ri.student_id = u.id
+        ORDER BY ri.created_at DESC
+      ''');
+
+      // Combine results
+      final forms = [];
+
+      // Add SCRF forms
+      for (final row in scrfResult) {
+        forms.add({
+          'form_type': row[0],
+          'form_id': row[1],
+          'user_id': row[2],
+          'student_id': row[3],
+          'student_name': row[4],
+          'student_number': row[5],
+          'program_enrolled': row[6],
+          'submitted_at': row[7]?.toIso8601String(),
+          'reviewed_at': row[8]?.toIso8601String(),
+          'status': row[9],
+          'first_name': row[10],
+          'last_name': row[11],
+          'student_status': row[12],
+          'program': row[13],
+        });
+      }
+
+      // Add Routine Interview forms
+      for (final row in riResult) {
+        forms.add({
+          'form_type': row[0],
+          'form_id': row[1],
+          'user_id': row[2],
+          'student_id': row[3],
+          'student_name': row[4],
+          'student_number': row[5],
+          'program_enrolled': row[6],
+          'submitted_at': row[7]?.toIso8601String(),
+          'reviewed_at': row[8]?.toIso8601String(),
+          'status': row[9],
+          'first_name': row[10],
+          'last_name': row[11],
+          'student_status': row[12],
+          'program': row[13],
+        });
+      }
+
+      return Response.ok(jsonEncode({'forms': forms}));
+    } catch (e) {
+      print('Error in getAdminForms: $e');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to fetch forms: $e'}),
       );
     }
   }

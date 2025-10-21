@@ -220,7 +220,7 @@ class _LoginPageState extends State<LoginPage> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.lightGreen.withOpacity(0.3),
-                        Colors.green.shade900.withOpacity(0.9),
+                        const Color.from(alpha: 1, red: 0.106, green: 0.369, blue: 0.125).withOpacity(0.9),
                       ],
                     ),
                   ),
@@ -523,6 +523,7 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(height: 16),
                             DropdownButtonFormField<String>(
                               value: _selectedProgram,
+                              isExpanded: true,
                               decoration: InputDecoration(
                                 labelText: 'Program',
                                 prefixIcon: const Icon(Icons.class_),
@@ -534,7 +535,14 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               items: _courses.where((course) => course['id'] != null && course['course_name'] != null).map((course) => DropdownMenuItem<String>(
                                 value: course['id'].toString(),
-                                child: Text(course['course_name']),
+                                child: Container(
+                                  width: double.infinity,
+                                  child: Text(
+                                    course['course_name'],
+                                    style: const TextStyle(fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               )).toList(),
                               onChanged: (value) {
                                 setState(() {

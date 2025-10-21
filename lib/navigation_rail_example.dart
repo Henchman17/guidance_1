@@ -213,24 +213,44 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                       Positioned(
                         right: 0,
                         top: 0,
-                        child: Container(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(10),
+                            gradient: LinearGradient(
+                              colors: [Colors.red.shade400, Colors.red.shade700],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.shade900.withOpacity(0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
                           ),
                           constraints: const BoxConstraints(
                             minWidth: 20,
                             minHeight: 20,
                           ),
-                          child: Text(
-                            '${_approvedAppointments.length}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          child: AnimatedScale(
+                            scale: 1.0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Text(
+                              '${_approvedAppointments.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
@@ -336,20 +356,36 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                               width: 260,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.teal.shade600, Colors.teal.shade800],
+                                  colors: [
+                                    Colors.teal.shade400,
+                                    Colors.teal.shade600,
+                                    Colors.teal.shade800,
+                                    Colors.teal.shade900,
+                                  ],
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
+                                  stops: [0.0, 0.3, 0.7, 1.0],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(2, 0),
+                                    color: Colors.teal.shade900.withOpacity(0.4),
+                                    blurRadius: 12,
+                                    offset: const Offset(4, 0),
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.teal.shade300.withOpacity(0.2),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 0),
+                                    spreadRadius: 2,
                                   ),
                                 ],
                                 borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(16),
-                                  bottomRight: Radius.circular(16),
+                                  topRight: Radius.circular(20),
+                                  bottomRight: Radius.circular(20),
+                                ),
+                                border: Border.all(
+                                  color: Colors.teal.shade200.withOpacity(0.3),
+                                  width: 1,
                                 ),
                               ),
                               child: Column(
@@ -381,9 +417,15 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                                       unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 24),
                                       selectedLabelTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                       unselectedLabelTextStyle: const TextStyle(color: Colors.white70),
-                                      indicatorColor: Colors.white.withOpacity(0.2),
-                                      indicatorShape: const CircleBorder(),
-                                      destinations: _buildNavigationDestinationsWithDividers(),
+                                      indicatorColor: Colors.white.withOpacity(0.3),
+                                      indicatorShape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: BorderSide(
+                                          color: Colors.teal.shade200.withOpacity(0.5),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      destinations: _buildAnimatedNavigationDestinations(),
                                     ),
                                   ),
                                 ],
@@ -393,23 +435,39 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                               width: 72,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.teal.shade600, Colors.teal.shade800],
+                                  colors: [
+                                    Colors.teal.shade400,
+                                    Colors.teal.shade600,
+                                    Colors.teal.shade800,
+                                    Colors.teal.shade900,
+                                  ],
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
+                                  stops: [0.0, 0.3, 0.7, 1.0],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(2, 0),
+                                    color: Colors.teal.shade900.withOpacity(0.4),
+                                    blurRadius: 12,
+                                    offset: const Offset(4, 0),
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.teal.shade300.withOpacity(0.2),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 0),
+                                    spreadRadius: 2,
                                   ),
                                 ],
                                 borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(16),
-                                  bottomRight: Radius.circular(16),
+                                  topRight: Radius.circular(20),
+                                  bottomRight: Radius.circular(20),
+                                ),
+                                border: Border.all(
+                                  color: Colors.teal.shade200.withOpacity(0.3),
+                                  width: 1,
                                 ),
                               ),
-                              child: NavigationRail(
+                                child: NavigationRail(
                                 extended: false,
                                 selectedIndex: _selectedIndex,
                                 onDestinationSelected: (int index) {
@@ -420,9 +478,15 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
                                 backgroundColor: Colors.transparent,
                                 selectedIconTheme: const IconThemeData(color: Colors.white, size: 28),
                                 unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 24),
-                                indicatorColor: Colors.white.withOpacity(0.2),
-                                indicatorShape: const CircleBorder(),
-                                destinations: _buildNavigationDestinationsWithDividers(),
+                                indicatorColor: Colors.white.withOpacity(0.3),
+                                indicatorShape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color: Colors.teal.shade200.withOpacity(0.5),
+                                    width: 1,
+                                  ),
+                                ),
+                                destinations: _buildAnimatedNavigationDestinations(),
                               ),
                             ),
                     ),
@@ -815,6 +879,145 @@ class _NavigationRailExampleState extends State<NavigationRailExample> with Sing
       ),
       const NavigationRailDestination(
         icon: Icon(Icons.logout),
+        label: Text('Logout'),
+      ),
+    ]);
+
+    return destinations;
+  }
+
+  List<NavigationRailDestination> _buildAnimatedNavigationDestinations() {
+    final isAdmin = _currentUser ?['role'] == 'admin';
+
+    List<NavigationRailDestination> destinations = [
+      NavigationRailDestination(
+        icon: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            Icons.home,
+            color: _selectedIndex == 0 ? Colors.white : Colors.white70,
+          ),
+        ),
+        label: Text('Home'),
+      ),
+    ];
+
+    if (isAdmin) {
+      destinations.addAll([
+        NavigationRailDestination(
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.dashboard,
+              color: _selectedIndex == 1 ? Colors.white : Colors.white70,
+            ),
+          ),
+          label: Text('Admin Dashboard'),
+        ),
+        NavigationRailDestination(
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.people,
+              color: _selectedIndex == 2 ? Colors.white : Colors.white70,
+            ),
+          ),
+          label: Text('Users'),
+        ),
+        NavigationRailDestination(
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.calendar_today,
+              color: _selectedIndex == 3 ? Colors.white : Colors.white70,
+            ),
+          ),
+          label: Text('Appointments'),
+        ),
+        NavigationRailDestination(
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.analytics,
+              color: _selectedIndex == 4 ? Colors.white : Colors.white70,
+            ),
+          ),
+          label: Text('Analytics'),
+        ),
+        NavigationRailDestination(
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.assignment_return,
+              color: _selectedIndex == 5 ? Colors.white : Colors.white70,
+            ),
+          ),
+          label: Text('Re-admission'),
+        ),
+        NavigationRailDestination(
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.gavel,
+              color: _selectedIndex == 6 ? Colors.white : Colors.white70,
+            ),
+          ),
+          label: Text('Discipline'),
+        ),
+        NavigationRailDestination(
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.exit_to_app,
+              color: _selectedIndex == 7 ? Colors.white : Colors.white70,
+            ),
+          ),
+          label: Text('Exit Interviews'),
+        ),
+        NavigationRailDestination(
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              Icons.assignment,
+              color: _selectedIndex == 8 ? Colors.white : Colors.white70,
+            ),
+          ),
+          label: Text('Forms & Records'),
+        ),
+      ]);
+    }
+
+    // Add a divider
+    destinations.add(
+      NavigationRailDestination(
+        icon: Container(
+          height: 1,
+          color: Colors.white.withOpacity(0.3),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        label: const SizedBox.shrink(),
+      ),
+    );
+
+    destinations.addAll([
+      NavigationRailDestination(
+        icon: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            Icons.settings,
+            color: _selectedIndex == (isAdmin ? 9 : 1) ? Colors.white : Colors.white70,
+          ),
+        ),
+        label: Text('Settings'),
+      ),
+      NavigationRailDestination(
+        icon: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            Icons.logout,
+            color: _selectedIndex == (isAdmin ? 10 : 2) ? Colors.white : Colors.white70,
+          ),
+        ),
         label: Text('Logout'),
       ),
     ]);

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../login_page.dart';
-import '../settings.dart';
 import 'admin_users_page.dart';
 import 'admin_appointments_page.dart';
 import 'admin_analytics_page.dart';
@@ -20,15 +19,14 @@ class AdminDashboardPage extends StatefulWidget {
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
 }
 
-class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTickerProviderStateMixin {
+class _AdminDashboardPageState extends State<AdminDashboardPage> {
   Map<String, dynamic>? dashboardData;
   bool isLoading = true;
   String errorMessage = '';
   int _selectedIndex = 0;
   Map<String, dynamic>? _currentUser;
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  bool _sidebarCollapsed = false;
+  List<dynamic> credentialChangeRequests = [];
+  bool isLoadingRequests = false;
 
   static const String apiBaseUrl = 'http://localhost:8080';
 
@@ -37,6 +35,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
     super.initState();
     _currentUser = widget.userData;
     fetchDashboardData();
+    fetchCredentialChangeRequests();
   }
 
   void _handleLogout() {
@@ -102,10 +101,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
         label: Text('Forms & Records'),
       ),
       NavigationRailDestination(
-        icon: Icon(Icons.settings),
-        label: Text('Settings'),
-      ),
-      NavigationRailDestination(
         icon: Icon(Icons.logout),
         label: Text('Logout'),
       ),
@@ -138,10 +133,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
       case 7: // Forms & Records
         setState(() => _selectedIndex = 7);
         break;
-      case 8: // Settings
-        setState(() => _selectedIndex = 8);
-        break;
-      case 9: // Logout
+      case 8: // Logout
         _handleLogout();
         break;
     }
@@ -176,6 +168,105 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
         errorMessage = 'Error: $e';
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> fetchCredentialChangeRequests() async {
+    setState(() {
+      isLoadingRequests = true;
+    });
+
+    try {
+      final adminId = widget.userData?['id'] ?? 0;
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/api/admin/credential-change-requests?admin_id=$adminId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          credentialChangeRequests = data['requests'] ?? [];
+          isLoadingRequests = false;
+        });
+      } else {
+        setState(() {
+          isLoadingRequests = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isLoadingRequests = false;
+      });
+    }
+  }
+
+  Future<void> approveRequest(int requestId) async {
+    try {
+      final adminId = widget.userData?['id'] ?? 0;
+      final response = await http.put(
+        Uri.parse('$apiBaseUrl/api/admin/credential-change-requests/$requestId/approve?admin_id=$adminId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        fetchCredentialChangeRequests();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Request approved successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to approve request'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> rejectRequest(int requestId, String reason) async {
+    try {
+      final adminId = widget.userData?['id'] ?? 0;
+      final response = await http.put(
+        Uri.parse('$apiBaseUrl/api/admin/credential-change-requests/$requestId?admin_id=$adminId'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'status': 'rejected', 'admin_notes': reason}),
+      );
+
+      if (response.statusCode == 200) {
+        fetchCredentialChangeRequests();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Request rejected'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to reject request'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -225,6 +316,85 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
               textAlign: TextAlign.center,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedMetricCard(String title, String value, IconData icon, List<Color> gradientColors, IconData trendIcon) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+      child: Card(
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              colors: gradientColors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: gradientColors.last.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: gradientColors.first.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 0),
+                spreadRadius: 2,
+              ),
+            ],
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 36, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Icon(trendIcon, size: 20, color: Colors.white.withOpacity(0.8)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black26,
+                      offset: Offset(1, 1),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -332,6 +502,156 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
     );
   }
 
+  Widget _buildCredentialChangeRequestsSection() {
+    if (isLoadingRequests) {
+      return const Card(
+        elevation: 4,
+        margin: EdgeInsets.all(16),
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (credentialChangeRequests.isEmpty) {
+      return Card(
+        elevation: 4,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(
+            child: Text(
+              'No pending credential change requests',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Credential Change Requests',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                TextButton(
+                  onPressed: fetchCredentialChangeRequests,
+                  child: const Text('Refresh'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...credentialChangeRequests.map((request) {
+              final requestId = request['id'];
+              final firstName = request['first_name'] ?? '';
+              final lastName = request['last_name'] ?? '';
+              final studentName = '$firstName $lastName'.trim().isEmpty ? 'Unknown' : '$firstName $lastName'.trim();
+              final requestType = request['request_type'] ?? 'N/A';
+              final currentValue = request['current_value'] ?? '';
+              final newValue = request['new_value'] ?? '';
+              final requestedChange = '$requestType: $currentValue → $newValue';
+              final status = request['status'] ?? 'pending';
+              final createdAt = request['created_at'] ?? '';
+
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Request #$requestId',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Chip(
+                            label: Text(status.toUpperCase()),
+                            backgroundColor: status == 'pending' ? Colors.orange : Colors.grey,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Student: $studentName'),
+                      Text('Change: $requestedChange'),
+                      Text('Submitted: $createdAt'),
+                      const SizedBox(height: 12),
+                      if (status == 'pending')
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () async {
+                                final reasonController = TextEditingController();
+                                final reason = await showDialog<String>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Reject Request'),
+                                    content: TextField(
+                                      controller: reasonController,
+                                      decoration: const InputDecoration(
+                                        hintText: 'Reason for rejection',
+                                      ),
+                                      maxLines: 3,
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.of(context).pop(reasonController.text),
+                                        child: const Text('Reject'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (reason != null && reason.isNotEmpty) {
+                                  rejectRequest(requestId, reason);
+                                }
+                              },
+                              child: const Text('Reject'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => approveRequest(requestId),
+                              child: const Text('Approve'),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDashboardContent() {
     if (isLoading) {
       return const Center(
@@ -371,7 +691,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
     return Column(
       children: [
         // Title bar always above
-        Padding(
+        Container(
+          color: Colors.lightBlue.shade100,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           child: Align(
             alignment: Alignment.centerLeft,
@@ -389,7 +710,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
           child: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFFE3F2FD), Color(0xFFFFFFFF)],
+                colors: [Color.fromARGB(255, 211, 224, 233), Color(0xFFFFFFFF)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -406,34 +727,47 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
                       child: Row(
                         children: [
                           Expanded(
-                            child: _buildMetricCard(
+                            child: _buildAnimatedMetricCard(
                               'Total Users',
                               userStats['total_users']?.toString() ?? '156',
-                              Icons.people,
-                              Colors.blue,
+                              Icons.people_alt_rounded,
+                              [Colors.blue.shade400, Colors.blue.shade600, Colors.blue.shade800],
+                              Icons.group_add,
                             ),
                           ),
                           Expanded(
-                            child: _buildMetricCard(
+                            child: _buildAnimatedMetricCard(
                               'New Today',
                               userStats['new_users_today']?.toString() ?? '0',
                               Icons.trending_up,
-                              Colors.orange,
+                              [Colors.orange.shade400, Colors.orange.shade600, Colors.orange.shade800],
+                              Icons.person_add,
                             ),
                           ),
                           Expanded(
-                            child: _buildMetricCard(
+                            child: _buildAnimatedMetricCard(
                               'Total Appointments',
                               appointmentStats['total_appointments']?.toString() ?? '89',
-                              Icons.calendar_today,
-                              Colors.purple,
+                              Icons.calendar_month_rounded,
+                              [Colors.purple.shade400, Colors.purple.shade600, Colors.purple.shade800],
+                              Icons.schedule,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildAnimatedMetricCard(
+                              'Completed',
+                              appointmentStats['completed']?.toString() ?? '32',
+                              Icons.check_circle_rounded,
+                              [Colors.green.shade400, Colors.green.shade600, Colors.green.shade800],
+                              Icons.thumb_up,
                             ),
                           ),
                         ],
                       ),
                     ),
 
-
+                    // Credential Change Requests
+                    _buildCredentialChangeRequestsSection(),
 
                     // Recent Activity
                     _buildRecentActivity(),
@@ -452,169 +786,51 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> with SingleTick
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          // Top navigation bar with user avatar
-          Container(
-            color: const Color.fromARGB(255, 30, 182, 88),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/s_logo.jpg',
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.cover,
+      appBar: AppBar(
+        title: const Text('Admin Dashboard'),
+        backgroundColor: const Color.fromARGB(255, 30, 182, 88),
+      ),
+      body: Container(
+        color: const Color.fromARGB(255, 249, 250, 250),
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            // Always visible NavigationRail
+            SizedBox(
+              width: 220,
+              child: ListView(
+                children: [
+                  for (int i = 0; i < _buildNavigationDestinations().length; i++)
+                    ListTile(
+                      leading: _buildNavigationDestinations()[i].icon,
+                      title: _buildNavigationDestinations()[i].label,
+                      selected: _selectedIndex == i,
+                      onTap: () => _handleNavigation(i),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  "PLSP Guidance Admin",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                // Notification icon
-                IconButton(
-                  icon: const Icon(Icons.notifications, color: Colors.white),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('No new notifications')),
-                    );
-                  },
-                  tooltip: 'Notifications',
-                ),
-                const SizedBox(width: 10),
-                // User Avatar with profile info
-                if (_currentUser != null)
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('User Profile'),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Center(
-                                child: CircleAvatar(
-                                  radius: 40,
-                                  backgroundColor: Colors.green,
-                                  child: Text(
-                                    _currentUser!['username']?.substring(0, 1).toUpperCase() ?? 'A',
-                                    style: const TextStyle(fontSize: 32, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text('Username: ${_currentUser!['username']}'),
-                              Text('Email: ${_currentUser!['email'] ?? 'N/A'}'),
-                              Text('Role: ${_currentUser!['role'] ?? 'Admin'}'),
-                            ],
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text('Close'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.white,
-                          child: Text(
-                            _currentUser!['username']?.substring(0, 1).toUpperCase() ?? 'A',
-                            style: const TextStyle(
-                              color: Color.fromARGB(255, 30, 182, 88),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _currentUser!['username'] ?? 'Admin',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              _currentUser!['role'] ?? 'Admin',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.arrow_drop_down, color: Colors.white),
-                      ],
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: Row(
-              children: [
-                // Always visible NavigationRail
-                SizedBox(
-                  width: 220,
-                  child: ListView(
-                    children: [
-                      for (int i = 0; i < _buildNavigationDestinations().length; i++)
-                        ListTile(
-                          leading: _buildNavigationDestinations()[i].icon,
-                          title: _buildNavigationDestinations()[i].label,
-                          selected: _selectedIndex == i,
-                          onTap: () => _handleNavigation(i),
-                        ),
-                    ],
-                  ),
-                ),
-                const VerticalDivider(thickness: 1, width: 1),
-                // Main content area
-                Expanded(
-                  child: _selectedIndex == 0
-                      ? _buildDashboardContent()
-                      : _selectedIndex == 1
-                          ? AdminUsersPage(userData: _currentUser)
-                          : _selectedIndex == 2
-                              ? AdminAppointmentsPage(userData: _currentUser)
-                              : _selectedIndex == 3
-                                  ? AdminAnalyticsPage(userData: _currentUser)
-                                  : _selectedIndex == 4
-                                      ? AdminReAdmissionPage(userData: _currentUser)
-                                      : _selectedIndex == 5
-                                          ? AdminDisciplinePage(userData: _currentUser)
-                                          : _selectedIndex == 6
-                                              ? AdminExitInterviewsPage(userData: _currentUser)
-                                              : _selectedIndex == 7
-                                                  ? AdminFormsPage(userData: _currentUser)
-                                                  : SettingsPage(userData: _currentUser),
-                ),
-              ],
+            const VerticalDivider(thickness: 1, width: 1),
+            // Main content area
+            Expanded(
+              child: _selectedIndex == 0
+                  ? _buildDashboardContent()
+                  : _selectedIndex == 1
+                      ? AdminUsersPage(userData: _currentUser)
+                      : _selectedIndex == 2
+                          ? AdminAppointmentsPage(userData: _currentUser)
+                          : _selectedIndex == 3
+                              ? AdminAnalyticsPage(userData: _currentUser)
+                              : _selectedIndex == 4
+                                  ? AdminReAdmissionPage(userData: _currentUser)
+                                  : _selectedIndex == 5
+                                      ? AdminDisciplinePage(userData: _currentUser)
+                                      : _selectedIndex == 6
+                                          ? AdminExitInterviewsPage(userData: _currentUser)
+                                          : AdminFormsPage(userData: _currentUser),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

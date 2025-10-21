@@ -17,6 +17,13 @@
   - Monthly user registration data
   - Appointment purpose distribution
   - Uses DataTable for structured data display
+- [x] Created AdminDisciplinePage (lib/admin_discipline_page.dart)
+  - Lists all discipline cases with filtering by status and severity
+  - Supports creating new discipline cases
+  - Allows updating existing cases with detailed forms
+  - Shows case details in modal dialogs
+  - Color-coded status and severity badges
+  - Search functionality across multiple fields
 - [x] Updated NavigationRailExample (lib/navigation_rail_example.dart)
   - Added role-based navigation destinations
   - Admin users see additional navigation options
@@ -32,6 +39,7 @@
 - **Dashboard Overview**: Statistics and workload information
 - **Appointment Oversight**: View all appointments across the system
 - **Analytics**: Data visualization for system insights
+- **Discipline Case Management**: Full CRUD operations for discipline cases
 - **Responsive Design**: Material Design components throughout
 
 ## Backend Endpoints Used
@@ -41,6 +49,9 @@
 - DELETE /api/admin/users/{id} - Delete user
 - GET /api/admin/appointments - List all appointments
 - GET /api/admin/analytics - Analytics data
+- GET /api/admin/discipline-cases - List all discipline cases
+- POST /api/admin/discipline-cases - Create new discipline case
+- PUT /api/admin/discipline-cases/{id} - Update discipline case
 
 ## Testing Needed 🔄
 - [ ] Test admin login and navigation
@@ -49,6 +60,7 @@
 - [ ] Check appointment viewing and status display
 - [ ] Validate analytics data display
 - [ ] Test role-based navigation for different user types
+- [ ] Test discipline case creation, updating, and filtering
 
 ## Notes
 - Admin functionality is only visible to users with 'admin' role
