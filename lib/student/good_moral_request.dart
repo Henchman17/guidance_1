@@ -2,10 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'download_request_slip.dart';
+import '../ocr_processor.dart';
+import '../document_generator.dart';
 
 class GoodMoralRequest extends StatefulWidget {
   const GoodMoralRequest({super.key});
@@ -16,6 +17,8 @@ class GoodMoralRequest extends StatefulWidget {
 
 class _GoodMoralRequestState extends State<GoodMoralRequest> {
   String? _recognizedText;
+  bool _isGeneratingDoc = false;
+  Map<String, String> _extractedData = {};
 
   void _navigateToDownloadRequestSlip(BuildContext context) {
     Navigator.of(context).push(
@@ -25,9 +28,173 @@ class _GoodMoralRequestState extends State<GoodMoralRequest> {
     );
   }
 
+  Future<void> _generateAndDownloadDocx(BuildContext context) async {
+    if (_extractedData.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('No Data Available'),
+          content: const Text('Please capture and process an image with OCR first to extract student data.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Validate extracted data
+    if (!DocumentGenerator.validateOcrData(_extractedData)) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Incomplete Data'),
+          content: const Text('Required student information (name, ID, course) could not be extracted. Please try capturing the image again.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isGeneratingDoc = true;
+    });
+
+    try {
+      // Request storage permission if needed
+      if (Platform.isAndroid && !kIsWeb) {
+        final hasPermission = await DocumentGenerator.requestStoragePermission();
+        if (!hasPermission) {
+          setState(() {
+            _isGeneratingDoc = false;
+          });
+          if (!context.mounted) return;
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Permission Required'),
+              content: const Text('Storage permission is required to save the document. Please grant permission in settings.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    openAppSettings();
+                  },
+                  child: const Text('Open Settings'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      }
+
+      // Generate the PDF document
+      final file = await DocumentGenerator.generateGoodMoralPDF(_extractedData);
+
+      if (file != null) {
+        setState(() {
+          _isGeneratingDoc = false;
+        });
+
+        if (!context.mounted) return;
+
+        // Show success message with file location
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Success'),
+            content: Text('Good Moral Certificate saved to: ${file.path}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await DocumentGenerator.openDocument(file);
+                },
+                child: const Text('Open File'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        throw Exception('Failed to generate document');
+      }
+    } catch (e) {
+      setState(() {
+        _isGeneratingDoc = false;
+      });
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Error'),
+          content: Text('Failed to generate document: $e'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   Future<void> _pickAndRecognizeText(BuildContext context) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    // Show source selection dialog for Android
+    ImageSource? source;
+    if (Platform.isAndroid) {
+      source = await showDialog<ImageSource>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Select Image Source'),
+          content: const Text('Choose where to get the image from:'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(ImageSource.camera),
+              child: const Text('Camera'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(ImageSource.gallery),
+              child: const Text('Gallery'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      source = ImageSource.gallery;
+    }
+
+    if (source == null) return;
+
+    final pickedFile = await picker.pickImage(
+      source: source,
+      imageQuality: 90, // Good quality for OCR
+      maxWidth: 1920, // Reasonable size
+      maxHeight: 1080,
+    );
 
     if (pickedFile == null) return;
 
@@ -47,19 +214,16 @@ class _GoodMoralRequestState extends State<GoodMoralRequest> {
     );
 
     try {
-      String text;
+      final imageFile = File(pickedFile.path);
 
-      if (Platform.isAndroid || Platform.isIOS) {
-        // Use Google ML Kit for mobile
-        final inputImage = InputImage.fromFilePath(pickedFile.path);
-        final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-        final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-        textRecognizer.close();
-        text = recognizedText.text;
-      } else {
-        // Use Tesseract for desktop
-        text = await FlutterTesseractOcr.extractText(pickedFile.path);
+      // Validate image
+      final isValid = await OcrProcessor.isImageValid(imageFile);
+      if (!isValid) {
+        throw Exception('Invalid image file');
       }
+
+      // Process OCR
+      final extractedData = await OcrProcessor.processImage(imageFile);
 
       if (!context.mounted) return;
 
@@ -67,18 +231,31 @@ class _GoodMoralRequestState extends State<GoodMoralRequest> {
       Navigator.of(context).pop();
 
       setState(() {
-        _recognizedText = text;
+        _extractedData = extractedData;
+        _recognizedText = extractedData.values.join('\n');
       });
 
-      // Save recognized text to local storage
+      // Save extracted data to local storage
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('ocr_recognized_text', text);
+      await prefs.setString('ocr_extracted_data', extractedData.toString());
 
+      // Show extracted data
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Recognized Text'),
-          content: SingleChildScrollView(child: Text(text)),
+          title: const Text('Extracted Student Data'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: extractedData.entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text('${entry.key}: ${entry.value}'),
+                );
+              }).toList(),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -113,17 +290,31 @@ class _GoodMoralRequestState extends State<GoodMoralRequest> {
     _pickAndRecognizeText(context);
   }
 
-  Future<String?> _loadRecognizedText() async {
+  Future<Map<String, String>> _loadExtractedData() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('ocr_recognized_text');
+    final dataString = prefs.getString('ocr_extracted_data');
+    if (dataString != null) {
+      // Parse the string back to map (simplified parsing)
+      final Map<String, String> data = {};
+      final entries = dataString.replaceAll('{', '').replaceAll('}', '').split(', ');
+      for (final entry in entries) {
+        final parts = entry.split(': ');
+        if (parts.length == 2) {
+          data[parts[0]] = parts[1];
+        }
+      }
+      return data;
+    }
+    return {};
   }
 
   @override
   void initState() {
     super.initState();
-    _loadRecognizedText().then((value) {
+    _loadExtractedData().then((value) {
       setState(() {
-        _recognizedText = value;
+        _extractedData = value;
+        _recognizedText = value.values.join('\n');
       });
     });
   }
@@ -248,6 +439,34 @@ class _GoodMoralRequestState extends State<GoodMoralRequest> {
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: 320,
+                        child: Card(
+                          elevation: 6,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _generateAndDownloadDocx(context),
+                            child: SizedBox(
+                              height: 160,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _isGeneratingDoc
+                                      ? const CircularProgressIndicator()
+                                      : Icon(Icons.description, size: 56, color: Colors.purple.shade700),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _isGeneratingDoc ? 'Generating...' : 'Generate Good Moral Certificate',
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),

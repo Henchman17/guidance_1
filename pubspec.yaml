@@ -13,7 +13,7 @@ dependencies:
   google_mlkit_text_recognition: ^0.15.0 # For OCR on mobile
   flutter_tesseract_ocr: ^0.4.0 # For OCR on desktop
   image_picker: ^1.1.2
-  path_provider: ^2.0.11
+  path_provider: ^2.1.5
   open_file: ^3.2.1
   universal_html: ^2.0.7
   shared_preferences: ^2.2.2
@@ -25,6 +25,9 @@ dependencies:
   http: ^1.1.0
   flutter_typeahead: ^5.0.2
   fl_chart: ^0.66.1
+  syncfusion_flutter_pdf: ^31.1.19
+  permission_handler: ^12.0.1
+  pdf: ^3.10.7
 
 dev_dependencies:
   flutter_test:
@@ -39,4 +42,5 @@ flutter:
     - assets/images/school.png
     - assets/images/logonbg.png
     - assets/files/RequestSlip.pdf
+    - assets/files/Good Moral.pdf
     - assets/tesseract_config.txt

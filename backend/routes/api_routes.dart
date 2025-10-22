@@ -1363,15 +1363,18 @@ class ApiRoutes {
       final body = await request.readAsString();
       final data = jsonDecode(body);
 
+      print('Credential Change Request Body: $data');
+
       // Validate required fields
       if (data['user_id'] == null || data['request_type'] == null || data['new_value'] == null) {
+        print('Missing required fields: user_id=${data['user_id']}, request_type=${data['request_type']}, new_value=${data['new_value']}');
         return Response.badRequest(
           body: jsonEncode({'error': 'Missing required fields: user_id, request_type, new_value'}),
         );
       }
 
       // Validate request_type
-      final validTypes = ['email', 'password', 'username', 'student_id'];
+      final validTypes = ['username', 'email', 'password', 'student_id'];
       if (!validTypes.contains(data['request_type'])) {
         return Response.badRequest(
           body: jsonEncode({'error': 'Invalid request_type. Must be one of: ${validTypes.join(', ')}'}),

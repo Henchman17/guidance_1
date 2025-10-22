@@ -60,6 +60,11 @@ void main(List<String> args) async {
     router.post('/api/credential-change-requests', apiRoutes.createCredentialChangeRequest);
     router.get('/api/credential-change-requests/<userId>', apiRoutes.getUserCredentialChangeRequests);
 
+    // Admin Credential Change Request routes
+    router.get('/api/admin/credential-change-requests', adminRoutes.getCredentialChangeRequests);
+    router.put('/api/admin/credential-change-requests/<id>', adminRoutes.updateCredentialChangeRequest);
+    router.put('/api/admin/credential-change-requests/<id>/approve', adminRoutes.approveCredentialChangeRequest);
+
   // Admin routes
   router.get('/api/admin/dashboard', adminRoutes.getAdminDashboard);
   router.get('/api/admin/users', adminRoutes.getAdminUsers);

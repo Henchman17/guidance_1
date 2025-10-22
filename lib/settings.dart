@@ -22,15 +22,13 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _darkMode = false;
   bool _notificationsEnabled = true;
   bool _emailNotifications = true;
-  String _selectedRole = 'Student';
+  String _selectedRole = 'student';
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
   Map<String, dynamic>? _currentUser;
   Map<String, dynamic>? _studentData;
   bool _isLoading = false;
   int _selectedIndex = 4;
-  List<Map<String, dynamic>> _credentialRequests = [];
 
   // Database API endpoints
   static const String _baseUrl = 'http://10.0.2.2:8080/api'; // Adjust port as needed - 10.0.2.2 for Android emulator
@@ -99,10 +97,9 @@ class _SettingsPageState extends State<SettingsPage> {
       
       // Only use SharedPreferences for role if no user data is available
       if (widget.userData == null) {
-        _selectedRole = prefs.getString('selectedRole') ?? 'Student';
+        _selectedRole = (prefs.getString('selectedRole') ?? 'student').toLowerCase();
         _nameController.text = prefs.getString('userName') ?? '';
         _emailController.text = prefs.getString('userEmail') ?? '';
-        _phoneController.text = prefs.getString('userPhone') ?? '';
       }
     });
   }
@@ -112,10 +109,6 @@ class _SettingsPageState extends State<SettingsPage> {
     await prefs.setBool('darkMode', _darkMode);
     await prefs.setBool('notificationsEnabled', _notificationsEnabled);
     await prefs.setBool('emailNotifications', _emailNotifications);
-    await prefs.setString('selectedRole', _selectedRole);
-    await prefs.setString('userName', _nameController.text);
-    await prefs.setString('userEmail', _emailController.text);
-    await prefs.setString('userPhone', _phoneController.text);
   }
 
   void _onDestinationSelected(int index) {
@@ -544,22 +537,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  /// Fetch student data from users table (merged structure)
-  Future<Map<String, dynamic>?> _fetchStudentData(int userId) async {
-    try {
-      final response = await http.get(Uri.parse('$_baseUrl/users/$userId'));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data;
-      }
-      return null;
-    } catch (e) {
-      print('Error fetching student data: $e');
-      return null;
-    }
-  }
-
   /// Update user data in users table
   Future<bool> _updateUserData(int userId, Map<String, dynamic> updates) async {
     try {
@@ -572,22 +549,6 @@ class _SettingsPageState extends State<SettingsPage> {
       return response.statusCode == 200;
     } catch (e) {
       print('Error updating user data: $e');
-      return false;
-    }
-  }
-
-  /// Update student data in users table (merged structure)
-  Future<bool> _updateStudentData(int userId, Map<String, dynamic> updates) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$_baseUrl/users/$userId'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(updates),
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      print('Error updating student data: $e');
       return false;
     }
   }
@@ -605,40 +566,48 @@ class _SettingsPageState extends State<SettingsPage> {
       final userData = await _fetchUserData(userId);
       if (userData != null) {
         print('Fetched user data: $userData'); // Debug log
-        if (mounted) setState(() {
-          _currentUser = userData;
-          _selectedRole = userData['role'] ?? 'student';
+        if (mounted) {
+          setState(() {
+            _currentUser = userData;
+            _selectedRole = (userData['role'] ?? 'student').toString().toLowerCase();
 
-          // Populate email field
-          _emailController.text = userData['email'] ?? '';
+            // Populate email field
+            _emailController.text = userData['email'] ?? '';
 
-          // For students, populate full name from first_name and last_name
-          if (_selectedRole == 'student') {
-            final firstName = userData['first_name'] ?? '';
-            final lastName = userData['last_name'] ?? '';
-            if (firstName.isNotEmpty && lastName.isNotEmpty) {
-              _nameController.text = '$firstName $lastName';
+            // For students, populate full name from first_name and last_name
+            if (_selectedRole == 'student') {
+              final firstName = userData['first_name'] ?? '';
+              final lastName = userData['last_name'] ?? '';
+              if (firstName.isNotEmpty && lastName.isNotEmpty) {
+                _nameController.text = '$firstName $lastName';
+              } else {
+                // Fallback to username if names not available
+                _nameController.text = userData['username'] ?? '';
+              }
             } else {
-              // Fallback to username if names not available
+              // For non-students, use username as display name
               _nameController.text = userData['username'] ?? '';
             }
-          } else {
-            // For non-students, use username as display name
-            _nameController.text = userData['username'] ?? '';
-          }
 
-          // Store student data for later use
-          _studentData = userData;
-        });
-        print('Updated UI fields - Name: ${_nameController.text}, Email: ${_emailController.text}'); // Debug log
+            // Store student data for later use (only for students)
+            if (_selectedRole == 'student') {
+              _studentData = userData;
+            } else {
+              _studentData = null;
+            }
+          });
+          print('Updated UI fields - Role: $_selectedRole, UserID: ${_currentUser?['id']}, Name: ${_nameController.text}, Email: ${_emailController.text}'); // Debug log
+        }
       } else {
         print('No user data received from API'); // Debug log
       }
     } catch (e) {
       print('Error loading user profile: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load profile: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load profile: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -654,7 +623,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final userId = _currentUser!['id'];
       bool success = true;
 
-      // Update user data in users table
+      // Update user data in users table (merged structure)
       final userUpdates = {
         'username': _nameController.text,
         'email': _emailController.text,
@@ -662,18 +631,6 @@ class _SettingsPageState extends State<SettingsPage> {
       };
 
       success &= await _updateUserData(userId, userUpdates);
-
-      // Update student data if user is a student
-      if (_selectedRole == 'student' && _studentData != null) {
-        final studentUpdates = {
-          'first_name': _studentData!['first_name'],
-          'last_name': _studentData!['last_name'],
-          'status': _studentData!['status'],
-          'program': _studentData!['program'],
-        };
-
-        success &= await _updateStudentData(userId, studentUpdates);
-      }
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -945,7 +902,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Credential change request submitted successfully')),
+          const SnackBar(content: Text('Request successful')),
         );
       } else {
         print('Failed to submit request. Status: ${response.statusCode}, Body: ${response.body}');
@@ -967,7 +924,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/credential-change-requests/user/${_currentUser!['id']}'),
+        Uri.parse('$_baseUrl/credential-change-requests/${_currentUser!['id']}'),
       );
 
       if (response.statusCode == 200) {
@@ -985,7 +942,6 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 }

@@ -27,6 +27,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   Map<String, dynamic>? _currentUser;
   List<dynamic> credentialChangeRequests = [];
   bool isLoadingRequests = false;
+  String _searchQuery = '';
+  List<dynamic> recentActivities = [];
+  bool isLoadingActivities = false;
+  String activitiesErrorMessage = '';
 
   static const String apiBaseUrl = 'http://localhost:8080';
 
@@ -36,6 +40,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     _currentUser = widget.userData;
     fetchDashboardData();
     fetchCredentialChangeRequests();
+    fetchRecentActivities();
   }
 
   void _handleLogout() {
@@ -270,6 +275,39 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
   }
 
+  Future<void> fetchRecentActivities() async {
+    setState(() {
+      isLoadingActivities = true;
+      activitiesErrorMessage = '';
+    });
+
+    try {
+      final adminId = widget.userData?['id'] ?? 0;
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/api/admin/recent-activities?admin_id=$adminId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          recentActivities = data['activities'] ?? [];
+          isLoadingActivities = false;
+        });
+      } else {
+        setState(() {
+          activitiesErrorMessage = 'Failed to load recent activities';
+          isLoadingActivities = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        activitiesErrorMessage = 'Error: $e';
+        isLoadingActivities = false;
+      });
+    }
+  }
+
   Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
     return Card(
       elevation: 4,
@@ -400,6 +438,79 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     );
   }
 
+  Widget _buildActivityItem(String title, String subtitle, String time, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            time,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getIconFromString(String iconString) {
+    switch (iconString) {
+      case 'person_add':
+        return Icons.person_add;
+      case 'calendar_today':
+        return Icons.calendar_today;
+      case 'edit':
+        return Icons.edit;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Color _getColorFromString(String colorString) {
+    switch (colorString) {
+      case 'green':
+        return Colors.green;
+      case 'blue':
+        return Colors.blue;
+      case 'orange':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildRecentActivity() {
     return Card(
       elevation: 4,
@@ -428,225 +539,651 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               ],
             ),
             const SizedBox(height: 16),
-            _buildActivityItem(
-              'New user registered',
-              'John Doe joined as student',
-              '2 hours ago',
-              Icons.person_add,
-              Colors.green,
-            ),
-            _buildActivityItem(
-              'Appointment scheduled',
-              'Maria Santos booked counseling',
-              '4 hours ago',
-              Icons.calendar_today,
-              Colors.blue,
-            ),
-            _buildActivityItem(
-              'User updated',
-              'Admin updated counselor profile',
-              '1 day ago',
-              Icons.edit,
-              Colors.orange,
-            ),
+            if (isLoadingActivities)
+              const Center(child: CircularProgressIndicator())
+            else if (activitiesErrorMessage.isNotEmpty)
+              Center(child: Text(activitiesErrorMessage))
+            else if (recentActivities.isEmpty)
+              const Center(child: Text('No recent activities'))
+            else
+              Column(
+                children: recentActivities.map((activity) {
+                  IconData icon = _getIconFromString(activity['icon'] ?? 'info');
+                  Color color = _getColorFromString(activity['color'] ?? 'grey');
+                  return _buildActivityItem(
+                    activity['title'] ?? 'Activity',
+                    activity['description'] ?? '',
+                    activity['time'] ?? '',
+                    icon,
+                    color,
+                  );
+                }).toList(),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActivityItem(String title, String subtitle, String time, IconData icon, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            time,
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildCredentialChangeRequestsSection() {
     if (isLoadingRequests) {
-      return const Card(
-        elevation: 4,
-        margin: EdgeInsets.all(16),
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Center(child: CircularProgressIndicator()),
+      return AnimatedOpacity(
+        opacity: 1.0,
+        duration: const Duration(milliseconds: 500),
+        child: Card(
+          elevation: 6,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade50, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: const Center(
+              child: Column(
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading requests...',
+                    style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       );
     }
 
     if (credentialChangeRequests.isEmpty) {
-      return Card(
-        elevation: 4,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Padding(
-          padding: EdgeInsets.all(20),
-          child: Center(
-            child: Text(
-              'No pending credential change requests',
-              style: TextStyle(color: Colors.grey),
+      return AnimatedOpacity(
+        opacity: 1.0,
+        duration: const Duration(milliseconds: 500),
+        child: Card(
+          elevation: 6,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [Colors.grey.shade50, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.inbox, size: 48, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'No pending credential change requests',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       );
     }
 
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Credential Change Requests',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                TextButton(
-                  onPressed: fetchCredentialChangeRequests,
-                  child: const Text('Refresh'),
-                ),
-              ],
+    return AnimatedOpacity(
+      opacity: 1.0,
+      duration: const Duration(milliseconds: 500),
+      child: Card(
+        elevation: 8,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              colors: [Colors.white, Colors.blue.shade50],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const SizedBox(height: 16),
-            ...credentialChangeRequests.map((request) {
-              final requestId = request['id'];
-              final firstName = request['first_name'] ?? '';
-              final lastName = request['last_name'] ?? '';
-              final studentName = '$firstName $lastName'.trim().isEmpty ? 'Unknown' : '$firstName $lastName'.trim();
-              final requestType = request['request_type'] ?? 'N/A';
-              final currentValue = request['current_value'] ?? '';
-              final newValue = request['new_value'] ?? '';
-              final requestedChange = '$requestType: $currentValue → $newValue';
-              final status = request['status'] ?? 'pending';
-              final createdAt = request['created_at'] ?? '';
-
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.shade100.withOpacity(0.5),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Request #$requestId',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Chip(
-                            label: Text(status.toUpperCase()),
-                            backgroundColor: status == 'pending' ? Colors.orange : Colors.grey,
-                          ),
-                        ],
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.assignment_turned_in,
+                          color: Colors.blue,
+                          size: 24,
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Text('Student: $studentName'),
-                      Text('Change: $requestedChange'),
-                      Text('Submitted: $createdAt'),
-                      const SizedBox(height: 12),
-                      if (status == 'pending')
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: () async {
-                                final reasonController = TextEditingController();
-                                final reason = await showDialog<String>(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Reject Request'),
-                                    content: TextField(
-                                      controller: reasonController,
-                                      decoration: const InputDecoration(
-                                        hintText: 'Reason for rejection',
-                                      ),
-                                      maxLines: 3,
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Credential Change Requests',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: fetchCredentialChangeRequests,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Refresh'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Search bar
+              TextField(
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search by student name or request type...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.blue),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.blue.shade200, width: 1),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.blue, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Filtered requests
+              Builder(
+                builder: (context) {
+                  final filteredRequests = credentialChangeRequests.where((request) {
+                    final firstName = request['first_name']?.toString().toLowerCase() ?? '';
+                    final lastName = request['last_name']?.toString().toLowerCase() ?? '';
+                    final studentName = '$firstName $lastName'.trim();
+                    final requestType = request['request_type']?.toString().toLowerCase() ?? '';
+                    return studentName.contains(_searchQuery) || requestType.contains(_searchQuery);
+                  }).toList();
+
+                  if (filteredRequests.length > 10) {
+                    return Scrollbar(
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: filteredRequests.map((request) {
+                            final requestId = request['id'];
+                            final firstName = request['first_name'] ?? '';
+                            final lastName = request['last_name'] ?? '';
+                            final studentName = '$firstName $lastName'.trim().isEmpty ? 'Unknown' : '$firstName $lastName'.trim();
+                            final requestType = request['request_type'] ?? 'N/A';
+                            final currentValue = request['current_value'] ?? '';
+                            final newValue = request['new_value'] ?? '';
+                            final requestedChange = '$requestType: $currentValue → $newValue';
+                            final status = request['status'] ?? 'pending';
+                            final createdAt = request['created_at'] ?? '';
+
+                            // Determine icon and color based on request type
+                            IconData requestIcon;
+                            Color requestColor;
+                            switch (requestType) {
+                              case 'username':
+                                requestIcon = Icons.person;
+                                requestColor = Colors.blue;
+                                break;
+                              case 'email':
+                                requestIcon = Icons.email;
+                                requestColor = Colors.green;
+                                break;
+                              case 'password':
+                                requestIcon = Icons.lock;
+                                requestColor = Colors.red;
+                                break;
+                              case 'student_id':
+                                requestIcon = Icons.badge;
+                                requestColor = Colors.purple;
+                                break;
+                              default:
+                                requestIcon = Icons.help;
+                                requestColor = Colors.grey;
+                            }
+
+                            // Status color
+                            Color statusColor;
+                            switch (status) {
+                              case 'pending':
+                                statusColor = Colors.orange;
+                                break;
+                              case 'approved':
+                                statusColor = Colors.green;
+                                break;
+                              case 'rejected':
+                                statusColor = Colors.red;
+                                break;
+                              default:
+                                statusColor = Colors.grey;
+                            }
+
+                            return AnimatedOpacity(
+                              opacity: 1.0,
+                              duration: const Duration(milliseconds: 300),
+                              child: Card(
+                                elevation: 4,
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    gradient: LinearGradient(
+                                      colors: [Colors.white, requestColor.withOpacity(0.05)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.of(context).pop(),
-                                        child: const Text('Cancel'),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  color: requestColor.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Icon(requestIcon, color: requestColor, size: 20),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Text(
+                                                'Request #$requestId',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          Chip(
+                                            label: Text(
+                                              status.toUpperCase(),
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                            ),
+                                            backgroundColor: statusColor,
+                                            elevation: 2,
+                                          ),
+                                        ],
                                       ),
-                                      ElevatedButton(
-                                        onPressed: () => Navigator.of(context).pop(reasonController.text),
-                                        child: const Text('Reject'),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.person, size: 16, color: Colors.grey),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Student: $studentName',
+                                            style: const TextStyle(fontSize: 14),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(requestIcon, size: 16, color: Colors.grey),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Change: $requestedChange',
+                                              style: const TextStyle(fontSize: 14),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Submitted: $createdAt',
+                                            style: const TextStyle(fontSize: 14, color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      if (status == 'pending')
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            OutlinedButton.icon(
+                                              onPressed: () async {
+                                                final reasonController = TextEditingController();
+                                                final reason = await showDialog<String>(
+                                                  context: context,
+                                                  builder: (context) => AlertDialog(
+                                                    title: const Text('Reject Request'),
+                                                    content: TextField(
+                                                      controller: reasonController,
+                                                      decoration: const InputDecoration(
+                                                        hintText: 'Reason for rejection',
+                                                      ),
+                                                      maxLines: 3,
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => Navigator.of(context).pop(),
+                                                        child: const Text('Cancel'),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () => Navigator.of(context).pop(reasonController.text),
+                                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                                        child: const Text('Reject'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                                if (reason != null && reason.isNotEmpty) {
+                                                  rejectRequest(requestId, reason);
+                                                }
+                                              },
+                                              icon: const Icon(Icons.close, size: 16),
+                                              label: const Text('Reject'),
+                                              style: OutlinedButton.styleFrom(
+                                                side: const BorderSide(color: Colors.red),
+                                                foregroundColor: Colors.red,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            ElevatedButton.icon(
+                                              onPressed: () => approveRequest(requestId),
+                                              icon: const Icon(Icons.check, size: 16),
+                                              label: const Text('Approve'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.green,
+                                                foregroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                elevation: 4,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    );
+                  } else {
+                    return Column(
+                      children: filteredRequests.map((request) {
+                        final requestId = request['id'];
+                        final firstName = request['first_name'] ?? '';
+                        final lastName = request['last_name'] ?? '';
+                        final studentName = '$firstName $lastName'.trim().isEmpty ? 'Unknown' : '$firstName $lastName'.trim();
+                        final requestType = request['request_type'] ?? 'N/A';
+                        final currentValue = request['current_value'] ?? '';
+                        final newValue = request['new_value'] ?? '';
+                        final requestedChange = '$requestType: $currentValue → $newValue';
+                        final status = request['status'] ?? 'pending';
+                        final createdAt = request['created_at'] ?? '';
+
+                        // Determine icon and color based on request type
+                        IconData requestIcon;
+                        Color requestColor;
+                        switch (requestType) {
+                          case 'username':
+                            requestIcon = Icons.person;
+                            requestColor = Colors.blue;
+                            break;
+                          case 'email':
+                            requestIcon = Icons.email;
+                            requestColor = Colors.green;
+                            break;
+                          case 'password':
+                            requestIcon = Icons.lock;
+                            requestColor = Colors.red;
+                            break;
+                          case 'student_id':
+                            requestIcon = Icons.badge;
+                            requestColor = Colors.purple;
+                            break;
+                          default:
+                            requestIcon = Icons.help;
+                            requestColor = Colors.grey;
+                        }
+
+                        // Status color
+                        Color statusColor;
+                        switch (status) {
+                          case 'pending':
+                            statusColor = Colors.orange;
+                            break;
+                          case 'approved':
+                            statusColor = Colors.green;
+                            break;
+                          case 'rejected':
+                            statusColor = Colors.red;
+                            break;
+                          default:
+                            statusColor = Colors.grey;
+                        }
+
+                        return AnimatedOpacity(
+                          opacity: 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Card(
+                            elevation: 4,
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  colors: [Colors.white, requestColor.withOpacity(0.05)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: requestColor.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Icon(requestIcon, color: requestColor, size: 20),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            'Request #$requestId',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Chip(
+                                        label: Text(
+                                          status.toUpperCase(),
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                        ),
+                                        backgroundColor: statusColor,
+                                        elevation: 2,
                                       ),
                                     ],
                                   ),
-                                );
-                                if (reason != null && reason.isNotEmpty) {
-                                  rejectRequest(requestId, reason);
-                                }
-                              },
-                              child: const Text('Reject'),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.person, size: 16, color: Colors.grey),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Student: $studentName',
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(requestIcon, size: 16, color: Colors.grey),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Change: $requestedChange',
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Submitted: $createdAt',
+                                        style: const TextStyle(fontSize: 14, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  if (status == 'pending')
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        OutlinedButton.icon(
+                                          onPressed: () async {
+                                            final reasonController = TextEditingController();
+                                            final reason = await showDialog<String>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text('Reject Request'),
+                                                content: TextField(
+                                                  controller: reasonController,
+                                                  decoration: const InputDecoration(
+                                                    hintText: 'Reason for rejection',
+                                                  ),
+                                                  maxLines: 3,
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.of(context).pop(),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    onPressed: () => Navigator.of(context).pop(reasonController.text),
+                                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                                    child: const Text('Reject'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (reason != null && reason.isNotEmpty) {
+                                              rejectRequest(requestId, reason);
+                                            }
+                                          },
+                                          icon: const Icon(Icons.close, size: 16),
+                                          label: const Text('Reject'),
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(color: Colors.red),
+                                            foregroundColor: Colors.red,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        ElevatedButton.icon(
+                                          onPressed: () => approveRequest(requestId),
+                                          icon: const Icon(Icons.check, size: 16),
+                                          label: const Text('Approve'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            elevation: 4,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () => approveRequest(requestId),
-                              child: const Text('Approve'),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ],
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -729,7 +1266,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           Expanded(
                             child: _buildAnimatedMetricCard(
                               'Total Users',
-                              userStats['total_users']?.toString() ?? '156',
+                              userStats['total_users']?.toString() ?? 'N/A',
                               Icons.people_alt_rounded,
                               [Colors.blue.shade400, Colors.blue.shade600, Colors.blue.shade800],
                               Icons.group_add,
@@ -738,7 +1275,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           Expanded(
                             child: _buildAnimatedMetricCard(
                               'New Today',
-                              userStats['new_users_today']?.toString() ?? '0',
+                              userStats['new_users_today']?.toString() ?? 'N/A',
                               Icons.trending_up,
                               [Colors.orange.shade400, Colors.orange.shade600, Colors.orange.shade800],
                               Icons.person_add,
@@ -747,30 +1284,21 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           Expanded(
                             child: _buildAnimatedMetricCard(
                               'Total Appointments',
-                              appointmentStats['total_appointments']?.toString() ?? '89',
+                              appointmentStats['total_appointments']?.toString() ?? 'N/A',
                               Icons.calendar_month_rounded,
                               [Colors.purple.shade400, Colors.purple.shade600, Colors.purple.shade800],
                               Icons.schedule,
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildAnimatedMetricCard(
-                              'Completed',
-                              appointmentStats['completed']?.toString() ?? '32',
-                              Icons.check_circle_rounded,
-                              [Colors.green.shade400, Colors.green.shade600, Colors.green.shade800],
-                              Icons.thumb_up,
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    // Credential Change Requests
-                    _buildCredentialChangeRequestsSection(),
-
                     // Recent Activity
                     _buildRecentActivity(),
+
+                    // Credential Change Requests
+                    _buildCredentialChangeRequestsSection(),
 
                     const SizedBox(height: 20),
                   ],
